@@ -17,18 +17,24 @@
 	<script src="sample.js"></script>
 	<!-- End_Exclude -->
 
+<style type="text/css">
+	span.extra-red span.fancytree-title {
+		color: red;
+	}
+</style>
+
 <script type="text/javascript">
 $(function(){
 	$("#tree").fancytree({
 		types: {
-			"book": {"icon": "ft-ico-book", "iconTooltip": "This is a book"},
+			"book": {"icon": "ft-ico-book", "iconTooltip": "This is a book", extraClasses: "extra-red"},
 			"computer": {"icon": "ft-ico-computer", "iconTooltip": "This is a computer."}
 		},
 		checkbox: true,
 		source: {url: "ajax-tree-products.json"},
-		iconTooltip: function(event, data){
-			return data.typeInfo.iconTooltip + "!";
-		}
+		// iconTooltip: function(event, data){
+		// 	return data.typeInfo.iconTooltip + "!";
+		// }
 	});
 });
 </script>

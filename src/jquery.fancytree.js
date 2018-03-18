@@ -3688,7 +3688,7 @@ $.extend(Fancytree.prototype,
 		 * - children have been added
 		 * - children have been removed
 		 */
-		var childLI, childNode1, childNode2, i, l, next, subCtx,
+		var childLI, childNode1, childNode2, i, l, next, subCtx, subNode,
 			node = ctx.node,
 			tree = ctx.tree,
 			opts = ctx.options,
@@ -3780,7 +3780,12 @@ $.extend(Fancytree.prototype,
 				}
 				// Add child markup
 				for(i=0, l=children.length; i<l; i++) {
-					subCtx = $.extend({}, ctx, {node: children[i]});
+					subNode = children[i];
+					subCtx = $.extend({}, ctx, {
+						node: subNode,
+						typeInfo: (subNode.type ? tree.types[subNode.type] : 0) || {}
+						});
+
 					this.nodeRender(subCtx, force, deep, false, true);
 				}
 				// Remove <li> if nodes have moved to another parent
@@ -3966,7 +3971,6 @@ $.extend(Fancytree.prototype,
 			node = ctx.node,
 			tree = ctx.tree,
 			opts = ctx.options,
-//			nodeContainer = node[tree.nodeContainerAttrName],
 			hasChildren = node.hasChildren(),
 			isLastSib = node.isLastSibling(),
 			aria = opts.aria,
@@ -3985,11 +3989,6 @@ $.extend(Fancytree.prototype,
 		cnList.push(cn.node);
 		if( tree.activeNode === node ){
 			cnList.push(cn.active);
-//			$(">span.fancytree-title", statusElem).attr("tabindex", "0");
-//			tree.$container.removeAttr("tabindex");
-		// }else{
-//			$(">span.fancytree-title", statusElem).removeAttr("tabindex");
-//			tree.$container.attr("tabindex", "0");
 		}
 		if( tree.focusNode === node ){
 			cnList.push(cn.focused);
@@ -4046,6 +4045,8 @@ $.extend(Fancytree.prototype,
 		}
 		if( node.extraClasses ){
 			cnList.push(node.extraClasses);
+		} else if( ctx.typeInfo.extraClasses ){
+			cnList.push(ctx.typeInfo.extraClasses);
 		}
 		// IE6 doesn't correctly evaluate multiple class names,
 		// so we create combined class names that can be used in the CSS
@@ -5363,6 +5364,7 @@ $.extend($.ui.fancytree,
 	 *
 	 * If tree.options.<optionName> is a callback that returns something, use that.<br>
 	 * Else if node.<optionName> is defined, use that.<br>
+	 * Else if tree.types[node.type].<optionName> is a value, use that.<br>
 	 * Else if tree.options.<optionName> is a value, use that.<br>
 	 * Else use `defaultValue`.
 	 *
@@ -5382,23 +5384,35 @@ $.extend($.ui.fancytree,
 	 * @since 2.22
 	 */
 	evalOption: function(optionName, node, nodeObject, treeOptions, defaultValue) {
-		var ctx, res,
+		var ctx, res, typeOpt,
+			nodeType = node.type,
 			tree = node.tree,
 			treeOpt = treeOptions[optionName],
 			nodeOpt = nodeObject[optionName];
 
+		// A tree callback takes highest precedence (unless it returns nothing)
 		if( $.isFunction(treeOpt) ) {
 			ctx = {
 				node: node, tree: tree, widget: tree.widget, options: tree.widget.options,
-				typeInfo: tree.types[node.type] || {}
+				typeInfo: tree.types[nodeType] || {}
 				};
 			res = treeOpt.call(tree, {type: optionName}, ctx);
-			if( res == null ) {
-				res = nodeOpt;
+			if( res != null ) {
+				return res;
 			}
-		} else {
-			res = (nodeOpt != null) ? nodeOpt : treeOpt;
 		}
+		// Use node.<optionName> if set
+		if ( nodeOpt != null ) {
+			return nodeOpt;
+		}
+		// Use tree.types[node.type].<optionName> if set
+		if ( node.type ) {
+			typeOpt = tree.types[node.type];
+			res = typeOpt[optionName];
+			if( res != null ) { return res; }
+		}
+		// Use tree.options.<optionName> if set
+		res = treeOpt;
 		if( res == null ) {
 			res = defaultValue;  // no option set at all: return default
 		}
