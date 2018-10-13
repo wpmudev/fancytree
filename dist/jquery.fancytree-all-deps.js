@@ -1,10 +1,10 @@
-/*! jQuery Fancytree Plugin - 2.28.0 - 2018-03-02T20:59:49Z
+/*! jQuery Fancytree Plugin - 2.30.0 - 2018-09-02T15:42:49Z
   * https://github.com/mar10/fancytree
   * Copyright (c) 2018 Martin Wendt; Licensed MIT
  */
-/*! jQuery UI - v1.12.1 - 2017-02-23
+/*! jQuery UI - v1.12.1 - 2018-05-20
 * http://jqueryui.com
-* Includes: widget.js, position.js, keycode.js, scroll-parent.js, unique-id.js, effect.js, effects/effect-blind.js
+* Includes: widget.js, position.js, keycode.js, scroll-parent.js, unique-id.js
 * Copyright jQuery Foundation and other contributors; Licensed MIT */
 
 /*
@@ -1338,1686 +1338,6 @@ var uniqueId = $.fn.extend( {
 } );
 
 
-/*!
- * jQuery UI Effects 1.12.1
- * http://jqueryui.com
- *
- * Copyright jQuery Foundation and other contributors
- * Released under the MIT license.
- * http://jquery.org/license
- */
-
-//>>label: Effects Core
-//>>group: Effects
-// jscs:disable maximumLineLength
-//>>description: Extends the internal jQuery effects. Includes morphing and easing. Required by all other effects.
-// jscs:enable maximumLineLength
-//>>docs: http://api.jqueryui.com/category/effects-core/
-//>>demos: http://jqueryui.com/effect/
-
-
-
-var dataSpace = "ui-effects-",
-	dataSpaceStyle = "ui-effects-style",
-	dataSpaceAnimated = "ui-effects-animated",
-
-	// Create a local jQuery because jQuery Color relies on it and the
-	// global may not exist with AMD and a custom build (#10199)
-	jQuery = $;
-
-$.effects = {
-	effect: {}
-};
-
-/*!
- * jQuery Color Animations v2.1.2
- * https://github.com/jquery/jquery-color
- *
- * Copyright 2014 jQuery Foundation and other contributors
- * Released under the MIT license.
- * http://jquery.org/license
- *
- * Date: Wed Jan 16 08:47:09 2013 -0600
- */
-( function( jQuery, undefined ) {
-
-	var stepHooks = "backgroundColor borderBottomColor borderLeftColor borderRightColor " +
-		"borderTopColor color columnRuleColor outlineColor textDecorationColor textEmphasisColor",
-
-	// Plusequals test for += 100 -= 100
-	rplusequals = /^([\-+])=\s*(\d+\.?\d*)/,
-
-	// A set of RE's that can match strings and generate color tuples.
-	stringParsers = [ {
-			re: /rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*(\d?(?:\.\d+)?)\s*)?\)/,
-			parse: function( execResult ) {
-				return [
-					execResult[ 1 ],
-					execResult[ 2 ],
-					execResult[ 3 ],
-					execResult[ 4 ]
-				];
-			}
-		}, {
-			re: /rgba?\(\s*(\d+(?:\.\d+)?)\%\s*,\s*(\d+(?:\.\d+)?)\%\s*,\s*(\d+(?:\.\d+)?)\%\s*(?:,\s*(\d?(?:\.\d+)?)\s*)?\)/,
-			parse: function( execResult ) {
-				return [
-					execResult[ 1 ] * 2.55,
-					execResult[ 2 ] * 2.55,
-					execResult[ 3 ] * 2.55,
-					execResult[ 4 ]
-				];
-			}
-		}, {
-
-			// This regex ignores A-F because it's compared against an already lowercased string
-			re: /#([a-f0-9]{2})([a-f0-9]{2})([a-f0-9]{2})/,
-			parse: function( execResult ) {
-				return [
-					parseInt( execResult[ 1 ], 16 ),
-					parseInt( execResult[ 2 ], 16 ),
-					parseInt( execResult[ 3 ], 16 )
-				];
-			}
-		}, {
-
-			// This regex ignores A-F because it's compared against an already lowercased string
-			re: /#([a-f0-9])([a-f0-9])([a-f0-9])/,
-			parse: function( execResult ) {
-				return [
-					parseInt( execResult[ 1 ] + execResult[ 1 ], 16 ),
-					parseInt( execResult[ 2 ] + execResult[ 2 ], 16 ),
-					parseInt( execResult[ 3 ] + execResult[ 3 ], 16 )
-				];
-			}
-		}, {
-			re: /hsla?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\%\s*,\s*(\d+(?:\.\d+)?)\%\s*(?:,\s*(\d?(?:\.\d+)?)\s*)?\)/,
-			space: "hsla",
-			parse: function( execResult ) {
-				return [
-					execResult[ 1 ],
-					execResult[ 2 ] / 100,
-					execResult[ 3 ] / 100,
-					execResult[ 4 ]
-				];
-			}
-		} ],
-
-	// JQuery.Color( )
-	color = jQuery.Color = function( color, green, blue, alpha ) {
-		return new jQuery.Color.fn.parse( color, green, blue, alpha );
-	},
-	spaces = {
-		rgba: {
-			props: {
-				red: {
-					idx: 0,
-					type: "byte"
-				},
-				green: {
-					idx: 1,
-					type: "byte"
-				},
-				blue: {
-					idx: 2,
-					type: "byte"
-				}
-			}
-		},
-
-		hsla: {
-			props: {
-				hue: {
-					idx: 0,
-					type: "degrees"
-				},
-				saturation: {
-					idx: 1,
-					type: "percent"
-				},
-				lightness: {
-					idx: 2,
-					type: "percent"
-				}
-			}
-		}
-	},
-	propTypes = {
-		"byte": {
-			floor: true,
-			max: 255
-		},
-		"percent": {
-			max: 1
-		},
-		"degrees": {
-			mod: 360,
-			floor: true
-		}
-	},
-	support = color.support = {},
-
-	// Element for support tests
-	supportElem = jQuery( "<p>" )[ 0 ],
-
-	// Colors = jQuery.Color.names
-	colors,
-
-	// Local aliases of functions called often
-	each = jQuery.each;
-
-// Determine rgba support immediately
-supportElem.style.cssText = "background-color:rgba(1,1,1,.5)";
-support.rgba = supportElem.style.backgroundColor.indexOf( "rgba" ) > -1;
-
-// Define cache name and alpha properties
-// for rgba and hsla spaces
-each( spaces, function( spaceName, space ) {
-	space.cache = "_" + spaceName;
-	space.props.alpha = {
-		idx: 3,
-		type: "percent",
-		def: 1
-	};
-} );
-
-function clamp( value, prop, allowEmpty ) {
-	var type = propTypes[ prop.type ] || {};
-
-	if ( value == null ) {
-		return ( allowEmpty || !prop.def ) ? null : prop.def;
-	}
-
-	// ~~ is an short way of doing floor for positive numbers
-	value = type.floor ? ~~value : parseFloat( value );
-
-	// IE will pass in empty strings as value for alpha,
-	// which will hit this case
-	if ( isNaN( value ) ) {
-		return prop.def;
-	}
-
-	if ( type.mod ) {
-
-		// We add mod before modding to make sure that negatives values
-		// get converted properly: -10 -> 350
-		return ( value + type.mod ) % type.mod;
-	}
-
-	// For now all property types without mod have min and max
-	return 0 > value ? 0 : type.max < value ? type.max : value;
-}
-
-function stringParse( string ) {
-	var inst = color(),
-		rgba = inst._rgba = [];
-
-	string = string.toLowerCase();
-
-	each( stringParsers, function( i, parser ) {
-		var parsed,
-			match = parser.re.exec( string ),
-			values = match && parser.parse( match ),
-			spaceName = parser.space || "rgba";
-
-		if ( values ) {
-			parsed = inst[ spaceName ]( values );
-
-			// If this was an rgba parse the assignment might happen twice
-			// oh well....
-			inst[ spaces[ spaceName ].cache ] = parsed[ spaces[ spaceName ].cache ];
-			rgba = inst._rgba = parsed._rgba;
-
-			// Exit each( stringParsers ) here because we matched
-			return false;
-		}
-	} );
-
-	// Found a stringParser that handled it
-	if ( rgba.length ) {
-
-		// If this came from a parsed string, force "transparent" when alpha is 0
-		// chrome, (and maybe others) return "transparent" as rgba(0,0,0,0)
-		if ( rgba.join() === "0,0,0,0" ) {
-			jQuery.extend( rgba, colors.transparent );
-		}
-		return inst;
-	}
-
-	// Named colors
-	return colors[ string ];
-}
-
-color.fn = jQuery.extend( color.prototype, {
-	parse: function( red, green, blue, alpha ) {
-		if ( red === undefined ) {
-			this._rgba = [ null, null, null, null ];
-			return this;
-		}
-		if ( red.jquery || red.nodeType ) {
-			red = jQuery( red ).css( green );
-			green = undefined;
-		}
-
-		var inst = this,
-			type = jQuery.type( red ),
-			rgba = this._rgba = [];
-
-		// More than 1 argument specified - assume ( red, green, blue, alpha )
-		if ( green !== undefined ) {
-			red = [ red, green, blue, alpha ];
-			type = "array";
-		}
-
-		if ( type === "string" ) {
-			return this.parse( stringParse( red ) || colors._default );
-		}
-
-		if ( type === "array" ) {
-			each( spaces.rgba.props, function( key, prop ) {
-				rgba[ prop.idx ] = clamp( red[ prop.idx ], prop );
-			} );
-			return this;
-		}
-
-		if ( type === "object" ) {
-			if ( red instanceof color ) {
-				each( spaces, function( spaceName, space ) {
-					if ( red[ space.cache ] ) {
-						inst[ space.cache ] = red[ space.cache ].slice();
-					}
-				} );
-			} else {
-				each( spaces, function( spaceName, space ) {
-					var cache = space.cache;
-					each( space.props, function( key, prop ) {
-
-						// If the cache doesn't exist, and we know how to convert
-						if ( !inst[ cache ] && space.to ) {
-
-							// If the value was null, we don't need to copy it
-							// if the key was alpha, we don't need to copy it either
-							if ( key === "alpha" || red[ key ] == null ) {
-								return;
-							}
-							inst[ cache ] = space.to( inst._rgba );
-						}
-
-						// This is the only case where we allow nulls for ALL properties.
-						// call clamp with alwaysAllowEmpty
-						inst[ cache ][ prop.idx ] = clamp( red[ key ], prop, true );
-					} );
-
-					// Everything defined but alpha?
-					if ( inst[ cache ] &&
-							jQuery.inArray( null, inst[ cache ].slice( 0, 3 ) ) < 0 ) {
-
-						// Use the default of 1
-						inst[ cache ][ 3 ] = 1;
-						if ( space.from ) {
-							inst._rgba = space.from( inst[ cache ] );
-						}
-					}
-				} );
-			}
-			return this;
-		}
-	},
-	is: function( compare ) {
-		var is = color( compare ),
-			same = true,
-			inst = this;
-
-		each( spaces, function( _, space ) {
-			var localCache,
-				isCache = is[ space.cache ];
-			if ( isCache ) {
-				localCache = inst[ space.cache ] || space.to && space.to( inst._rgba ) || [];
-				each( space.props, function( _, prop ) {
-					if ( isCache[ prop.idx ] != null ) {
-						same = ( isCache[ prop.idx ] === localCache[ prop.idx ] );
-						return same;
-					}
-				} );
-			}
-			return same;
-		} );
-		return same;
-	},
-	_space: function() {
-		var used = [],
-			inst = this;
-		each( spaces, function( spaceName, space ) {
-			if ( inst[ space.cache ] ) {
-				used.push( spaceName );
-			}
-		} );
-		return used.pop();
-	},
-	transition: function( other, distance ) {
-		var end = color( other ),
-			spaceName = end._space(),
-			space = spaces[ spaceName ],
-			startColor = this.alpha() === 0 ? color( "transparent" ) : this,
-			start = startColor[ space.cache ] || space.to( startColor._rgba ),
-			result = start.slice();
-
-		end = end[ space.cache ];
-		each( space.props, function( key, prop ) {
-			var index = prop.idx,
-				startValue = start[ index ],
-				endValue = end[ index ],
-				type = propTypes[ prop.type ] || {};
-
-			// If null, don't override start value
-			if ( endValue === null ) {
-				return;
-			}
-
-			// If null - use end
-			if ( startValue === null ) {
-				result[ index ] = endValue;
-			} else {
-				if ( type.mod ) {
-					if ( endValue - startValue > type.mod / 2 ) {
-						startValue += type.mod;
-					} else if ( startValue - endValue > type.mod / 2 ) {
-						startValue -= type.mod;
-					}
-				}
-				result[ index ] = clamp( ( endValue - startValue ) * distance + startValue, prop );
-			}
-		} );
-		return this[ spaceName ]( result );
-	},
-	blend: function( opaque ) {
-
-		// If we are already opaque - return ourself
-		if ( this._rgba[ 3 ] === 1 ) {
-			return this;
-		}
-
-		var rgb = this._rgba.slice(),
-			a = rgb.pop(),
-			blend = color( opaque )._rgba;
-
-		return color( jQuery.map( rgb, function( v, i ) {
-			return ( 1 - a ) * blend[ i ] + a * v;
-		} ) );
-	},
-	toRgbaString: function() {
-		var prefix = "rgba(",
-			rgba = jQuery.map( this._rgba, function( v, i ) {
-				return v == null ? ( i > 2 ? 1 : 0 ) : v;
-			} );
-
-		if ( rgba[ 3 ] === 1 ) {
-			rgba.pop();
-			prefix = "rgb(";
-		}
-
-		return prefix + rgba.join() + ")";
-	},
-	toHslaString: function() {
-		var prefix = "hsla(",
-			hsla = jQuery.map( this.hsla(), function( v, i ) {
-				if ( v == null ) {
-					v = i > 2 ? 1 : 0;
-				}
-
-				// Catch 1 and 2
-				if ( i && i < 3 ) {
-					v = Math.round( v * 100 ) + "%";
-				}
-				return v;
-			} );
-
-		if ( hsla[ 3 ] === 1 ) {
-			hsla.pop();
-			prefix = "hsl(";
-		}
-		return prefix + hsla.join() + ")";
-	},
-	toHexString: function( includeAlpha ) {
-		var rgba = this._rgba.slice(),
-			alpha = rgba.pop();
-
-		if ( includeAlpha ) {
-			rgba.push( ~~( alpha * 255 ) );
-		}
-
-		return "#" + jQuery.map( rgba, function( v ) {
-
-			// Default to 0 when nulls exist
-			v = ( v || 0 ).toString( 16 );
-			return v.length === 1 ? "0" + v : v;
-		} ).join( "" );
-	},
-	toString: function() {
-		return this._rgba[ 3 ] === 0 ? "transparent" : this.toRgbaString();
-	}
-} );
-color.fn.parse.prototype = color.fn;
-
-// Hsla conversions adapted from:
-// https://code.google.com/p/maashaack/source/browse/packages/graphics/trunk/src/graphics/colors/HUE2RGB.as?r=5021
-
-function hue2rgb( p, q, h ) {
-	h = ( h + 1 ) % 1;
-	if ( h * 6 < 1 ) {
-		return p + ( q - p ) * h * 6;
-	}
-	if ( h * 2 < 1 ) {
-		return q;
-	}
-	if ( h * 3 < 2 ) {
-		return p + ( q - p ) * ( ( 2 / 3 ) - h ) * 6;
-	}
-	return p;
-}
-
-spaces.hsla.to = function( rgba ) {
-	if ( rgba[ 0 ] == null || rgba[ 1 ] == null || rgba[ 2 ] == null ) {
-		return [ null, null, null, rgba[ 3 ] ];
-	}
-	var r = rgba[ 0 ] / 255,
-		g = rgba[ 1 ] / 255,
-		b = rgba[ 2 ] / 255,
-		a = rgba[ 3 ],
-		max = Math.max( r, g, b ),
-		min = Math.min( r, g, b ),
-		diff = max - min,
-		add = max + min,
-		l = add * 0.5,
-		h, s;
-
-	if ( min === max ) {
-		h = 0;
-	} else if ( r === max ) {
-		h = ( 60 * ( g - b ) / diff ) + 360;
-	} else if ( g === max ) {
-		h = ( 60 * ( b - r ) / diff ) + 120;
-	} else {
-		h = ( 60 * ( r - g ) / diff ) + 240;
-	}
-
-	// Chroma (diff) == 0 means greyscale which, by definition, saturation = 0%
-	// otherwise, saturation is based on the ratio of chroma (diff) to lightness (add)
-	if ( diff === 0 ) {
-		s = 0;
-	} else if ( l <= 0.5 ) {
-		s = diff / add;
-	} else {
-		s = diff / ( 2 - add );
-	}
-	return [ Math.round( h ) % 360, s, l, a == null ? 1 : a ];
-};
-
-spaces.hsla.from = function( hsla ) {
-	if ( hsla[ 0 ] == null || hsla[ 1 ] == null || hsla[ 2 ] == null ) {
-		return [ null, null, null, hsla[ 3 ] ];
-	}
-	var h = hsla[ 0 ] / 360,
-		s = hsla[ 1 ],
-		l = hsla[ 2 ],
-		a = hsla[ 3 ],
-		q = l <= 0.5 ? l * ( 1 + s ) : l + s - l * s,
-		p = 2 * l - q;
-
-	return [
-		Math.round( hue2rgb( p, q, h + ( 1 / 3 ) ) * 255 ),
-		Math.round( hue2rgb( p, q, h ) * 255 ),
-		Math.round( hue2rgb( p, q, h - ( 1 / 3 ) ) * 255 ),
-		a
-	];
-};
-
-each( spaces, function( spaceName, space ) {
-	var props = space.props,
-		cache = space.cache,
-		to = space.to,
-		from = space.from;
-
-	// Makes rgba() and hsla()
-	color.fn[ spaceName ] = function( value ) {
-
-		// Generate a cache for this space if it doesn't exist
-		if ( to && !this[ cache ] ) {
-			this[ cache ] = to( this._rgba );
-		}
-		if ( value === undefined ) {
-			return this[ cache ].slice();
-		}
-
-		var ret,
-			type = jQuery.type( value ),
-			arr = ( type === "array" || type === "object" ) ? value : arguments,
-			local = this[ cache ].slice();
-
-		each( props, function( key, prop ) {
-			var val = arr[ type === "object" ? key : prop.idx ];
-			if ( val == null ) {
-				val = local[ prop.idx ];
-			}
-			local[ prop.idx ] = clamp( val, prop );
-		} );
-
-		if ( from ) {
-			ret = color( from( local ) );
-			ret[ cache ] = local;
-			return ret;
-		} else {
-			return color( local );
-		}
-	};
-
-	// Makes red() green() blue() alpha() hue() saturation() lightness()
-	each( props, function( key, prop ) {
-
-		// Alpha is included in more than one space
-		if ( color.fn[ key ] ) {
-			return;
-		}
-		color.fn[ key ] = function( value ) {
-			var vtype = jQuery.type( value ),
-				fn = ( key === "alpha" ? ( this._hsla ? "hsla" : "rgba" ) : spaceName ),
-				local = this[ fn ](),
-				cur = local[ prop.idx ],
-				match;
-
-			if ( vtype === "undefined" ) {
-				return cur;
-			}
-
-			if ( vtype === "function" ) {
-				value = value.call( this, cur );
-				vtype = jQuery.type( value );
-			}
-			if ( value == null && prop.empty ) {
-				return this;
-			}
-			if ( vtype === "string" ) {
-				match = rplusequals.exec( value );
-				if ( match ) {
-					value = cur + parseFloat( match[ 2 ] ) * ( match[ 1 ] === "+" ? 1 : -1 );
-				}
-			}
-			local[ prop.idx ] = value;
-			return this[ fn ]( local );
-		};
-	} );
-} );
-
-// Add cssHook and .fx.step function for each named hook.
-// accept a space separated string of properties
-color.hook = function( hook ) {
-	var hooks = hook.split( " " );
-	each( hooks, function( i, hook ) {
-		jQuery.cssHooks[ hook ] = {
-			set: function( elem, value ) {
-				var parsed, curElem,
-					backgroundColor = "";
-
-				if ( value !== "transparent" && ( jQuery.type( value ) !== "string" ||
-						( parsed = stringParse( value ) ) ) ) {
-					value = color( parsed || value );
-					if ( !support.rgba && value._rgba[ 3 ] !== 1 ) {
-						curElem = hook === "backgroundColor" ? elem.parentNode : elem;
-						while (
-							( backgroundColor === "" || backgroundColor === "transparent" ) &&
-							curElem && curElem.style
-						) {
-							try {
-								backgroundColor = jQuery.css( curElem, "backgroundColor" );
-								curElem = curElem.parentNode;
-							} catch ( e ) {
-							}
-						}
-
-						value = value.blend( backgroundColor && backgroundColor !== "transparent" ?
-							backgroundColor :
-							"_default" );
-					}
-
-					value = value.toRgbaString();
-				}
-				try {
-					elem.style[ hook ] = value;
-				} catch ( e ) {
-
-					// Wrapped to prevent IE from throwing errors on "invalid" values like
-					// 'auto' or 'inherit'
-				}
-			}
-		};
-		jQuery.fx.step[ hook ] = function( fx ) {
-			if ( !fx.colorInit ) {
-				fx.start = color( fx.elem, hook );
-				fx.end = color( fx.end );
-				fx.colorInit = true;
-			}
-			jQuery.cssHooks[ hook ].set( fx.elem, fx.start.transition( fx.end, fx.pos ) );
-		};
-	} );
-
-};
-
-color.hook( stepHooks );
-
-jQuery.cssHooks.borderColor = {
-	expand: function( value ) {
-		var expanded = {};
-
-		each( [ "Top", "Right", "Bottom", "Left" ], function( i, part ) {
-			expanded[ "border" + part + "Color" ] = value;
-		} );
-		return expanded;
-	}
-};
-
-// Basic color names only.
-// Usage of any of the other color names requires adding yourself or including
-// jquery.color.svg-names.js.
-colors = jQuery.Color.names = {
-
-	// 4.1. Basic color keywords
-	aqua: "#00ffff",
-	black: "#000000",
-	blue: "#0000ff",
-	fuchsia: "#ff00ff",
-	gray: "#808080",
-	green: "#008000",
-	lime: "#00ff00",
-	maroon: "#800000",
-	navy: "#000080",
-	olive: "#808000",
-	purple: "#800080",
-	red: "#ff0000",
-	silver: "#c0c0c0",
-	teal: "#008080",
-	white: "#ffffff",
-	yellow: "#ffff00",
-
-	// 4.2.3. "transparent" color keyword
-	transparent: [ null, null, null, 0 ],
-
-	_default: "#ffffff"
-};
-
-} )( jQuery );
-
-/******************************************************************************/
-/****************************** CLASS ANIMATIONS ******************************/
-/******************************************************************************/
-( function() {
-
-var classAnimationActions = [ "add", "remove", "toggle" ],
-	shorthandStyles = {
-		border: 1,
-		borderBottom: 1,
-		borderColor: 1,
-		borderLeft: 1,
-		borderRight: 1,
-		borderTop: 1,
-		borderWidth: 1,
-		margin: 1,
-		padding: 1
-	};
-
-$.each(
-	[ "borderLeftStyle", "borderRightStyle", "borderBottomStyle", "borderTopStyle" ],
-	function( _, prop ) {
-		$.fx.step[ prop ] = function( fx ) {
-			if ( fx.end !== "none" && !fx.setAttr || fx.pos === 1 && !fx.setAttr ) {
-				jQuery.style( fx.elem, prop, fx.end );
-				fx.setAttr = true;
-			}
-		};
-	}
-);
-
-function getElementStyles( elem ) {
-	var key, len,
-		style = elem.ownerDocument.defaultView ?
-			elem.ownerDocument.defaultView.getComputedStyle( elem, null ) :
-			elem.currentStyle,
-		styles = {};
-
-	if ( style && style.length && style[ 0 ] && style[ style[ 0 ] ] ) {
-		len = style.length;
-		while ( len-- ) {
-			key = style[ len ];
-			if ( typeof style[ key ] === "string" ) {
-				styles[ $.camelCase( key ) ] = style[ key ];
-			}
-		}
-
-	// Support: Opera, IE <9
-	} else {
-		for ( key in style ) {
-			if ( typeof style[ key ] === "string" ) {
-				styles[ key ] = style[ key ];
-			}
-		}
-	}
-
-	return styles;
-}
-
-function styleDifference( oldStyle, newStyle ) {
-	var diff = {},
-		name, value;
-
-	for ( name in newStyle ) {
-		value = newStyle[ name ];
-		if ( oldStyle[ name ] !== value ) {
-			if ( !shorthandStyles[ name ] ) {
-				if ( $.fx.step[ name ] || !isNaN( parseFloat( value ) ) ) {
-					diff[ name ] = value;
-				}
-			}
-		}
-	}
-
-	return diff;
-}
-
-// Support: jQuery <1.8
-if ( !$.fn.addBack ) {
-	$.fn.addBack = function( selector ) {
-		return this.add( selector == null ?
-			this.prevObject : this.prevObject.filter( selector )
-		);
-	};
-}
-
-$.effects.animateClass = function( value, duration, easing, callback ) {
-	var o = $.speed( duration, easing, callback );
-
-	return this.queue( function() {
-		var animated = $( this ),
-			baseClass = animated.attr( "class" ) || "",
-			applyClassChange,
-			allAnimations = o.children ? animated.find( "*" ).addBack() : animated;
-
-		// Map the animated objects to store the original styles.
-		allAnimations = allAnimations.map( function() {
-			var el = $( this );
-			return {
-				el: el,
-				start: getElementStyles( this )
-			};
-		} );
-
-		// Apply class change
-		applyClassChange = function() {
-			$.each( classAnimationActions, function( i, action ) {
-				if ( value[ action ] ) {
-					animated[ action + "Class" ]( value[ action ] );
-				}
-			} );
-		};
-		applyClassChange();
-
-		// Map all animated objects again - calculate new styles and diff
-		allAnimations = allAnimations.map( function() {
-			this.end = getElementStyles( this.el[ 0 ] );
-			this.diff = styleDifference( this.start, this.end );
-			return this;
-		} );
-
-		// Apply original class
-		animated.attr( "class", baseClass );
-
-		// Map all animated objects again - this time collecting a promise
-		allAnimations = allAnimations.map( function() {
-			var styleInfo = this,
-				dfd = $.Deferred(),
-				opts = $.extend( {}, o, {
-					queue: false,
-					complete: function() {
-						dfd.resolve( styleInfo );
-					}
-				} );
-
-			this.el.animate( this.diff, opts );
-			return dfd.promise();
-		} );
-
-		// Once all animations have completed:
-		$.when.apply( $, allAnimations.get() ).done( function() {
-
-			// Set the final class
-			applyClassChange();
-
-			// For each animated element,
-			// clear all css properties that were animated
-			$.each( arguments, function() {
-				var el = this.el;
-				$.each( this.diff, function( key ) {
-					el.css( key, "" );
-				} );
-			} );
-
-			// This is guarnteed to be there if you use jQuery.speed()
-			// it also handles dequeuing the next anim...
-			o.complete.call( animated[ 0 ] );
-		} );
-	} );
-};
-
-$.fn.extend( {
-	addClass: ( function( orig ) {
-		return function( classNames, speed, easing, callback ) {
-			return speed ?
-				$.effects.animateClass.call( this,
-					{ add: classNames }, speed, easing, callback ) :
-				orig.apply( this, arguments );
-		};
-	} )( $.fn.addClass ),
-
-	removeClass: ( function( orig ) {
-		return function( classNames, speed, easing, callback ) {
-			return arguments.length > 1 ?
-				$.effects.animateClass.call( this,
-					{ remove: classNames }, speed, easing, callback ) :
-				orig.apply( this, arguments );
-		};
-	} )( $.fn.removeClass ),
-
-	toggleClass: ( function( orig ) {
-		return function( classNames, force, speed, easing, callback ) {
-			if ( typeof force === "boolean" || force === undefined ) {
-				if ( !speed ) {
-
-					// Without speed parameter
-					return orig.apply( this, arguments );
-				} else {
-					return $.effects.animateClass.call( this,
-						( force ? { add: classNames } : { remove: classNames } ),
-						speed, easing, callback );
-				}
-			} else {
-
-				// Without force parameter
-				return $.effects.animateClass.call( this,
-					{ toggle: classNames }, force, speed, easing );
-			}
-		};
-	} )( $.fn.toggleClass ),
-
-	switchClass: function( remove, add, speed, easing, callback ) {
-		return $.effects.animateClass.call( this, {
-			add: add,
-			remove: remove
-		}, speed, easing, callback );
-	}
-} );
-
-} )();
-
-/******************************************************************************/
-/*********************************** EFFECTS **********************************/
-/******************************************************************************/
-
-( function() {
-
-if ( $.expr && $.expr.filters && $.expr.filters.animated ) {
-	$.expr.filters.animated = ( function( orig ) {
-		return function( elem ) {
-			return !!$( elem ).data( dataSpaceAnimated ) || orig( elem );
-		};
-	} )( $.expr.filters.animated );
-}
-
-if ( $.uiBackCompat !== false ) {
-	$.extend( $.effects, {
-
-		// Saves a set of properties in a data storage
-		save: function( element, set ) {
-			var i = 0, length = set.length;
-			for ( ; i < length; i++ ) {
-				if ( set[ i ] !== null ) {
-					element.data( dataSpace + set[ i ], element[ 0 ].style[ set[ i ] ] );
-				}
-			}
-		},
-
-		// Restores a set of previously saved properties from a data storage
-		restore: function( element, set ) {
-			var val, i = 0, length = set.length;
-			for ( ; i < length; i++ ) {
-				if ( set[ i ] !== null ) {
-					val = element.data( dataSpace + set[ i ] );
-					element.css( set[ i ], val );
-				}
-			}
-		},
-
-		setMode: function( el, mode ) {
-			if ( mode === "toggle" ) {
-				mode = el.is( ":hidden" ) ? "show" : "hide";
-			}
-			return mode;
-		},
-
-		// Wraps the element around a wrapper that copies position properties
-		createWrapper: function( element ) {
-
-			// If the element is already wrapped, return it
-			if ( element.parent().is( ".ui-effects-wrapper" ) ) {
-				return element.parent();
-			}
-
-			// Wrap the element
-			var props = {
-					width: element.outerWidth( true ),
-					height: element.outerHeight( true ),
-					"float": element.css( "float" )
-				},
-				wrapper = $( "<div></div>" )
-					.addClass( "ui-effects-wrapper" )
-					.css( {
-						fontSize: "100%",
-						background: "transparent",
-						border: "none",
-						margin: 0,
-						padding: 0
-					} ),
-
-				// Store the size in case width/height are defined in % - Fixes #5245
-				size = {
-					width: element.width(),
-					height: element.height()
-				},
-				active = document.activeElement;
-
-			// Support: Firefox
-			// Firefox incorrectly exposes anonymous content
-			// https://bugzilla.mozilla.org/show_bug.cgi?id=561664
-			try {
-				active.id;
-			} catch ( e ) {
-				active = document.body;
-			}
-
-			element.wrap( wrapper );
-
-			// Fixes #7595 - Elements lose focus when wrapped.
-			if ( element[ 0 ] === active || $.contains( element[ 0 ], active ) ) {
-				$( active ).trigger( "focus" );
-			}
-
-			// Hotfix for jQuery 1.4 since some change in wrap() seems to actually
-			// lose the reference to the wrapped element
-			wrapper = element.parent();
-
-			// Transfer positioning properties to the wrapper
-			if ( element.css( "position" ) === "static" ) {
-				wrapper.css( { position: "relative" } );
-				element.css( { position: "relative" } );
-			} else {
-				$.extend( props, {
-					position: element.css( "position" ),
-					zIndex: element.css( "z-index" )
-				} );
-				$.each( [ "top", "left", "bottom", "right" ], function( i, pos ) {
-					props[ pos ] = element.css( pos );
-					if ( isNaN( parseInt( props[ pos ], 10 ) ) ) {
-						props[ pos ] = "auto";
-					}
-				} );
-				element.css( {
-					position: "relative",
-					top: 0,
-					left: 0,
-					right: "auto",
-					bottom: "auto"
-				} );
-			}
-			element.css( size );
-
-			return wrapper.css( props ).show();
-		},
-
-		removeWrapper: function( element ) {
-			var active = document.activeElement;
-
-			if ( element.parent().is( ".ui-effects-wrapper" ) ) {
-				element.parent().replaceWith( element );
-
-				// Fixes #7595 - Elements lose focus when wrapped.
-				if ( element[ 0 ] === active || $.contains( element[ 0 ], active ) ) {
-					$( active ).trigger( "focus" );
-				}
-			}
-
-			return element;
-		}
-	} );
-}
-
-$.extend( $.effects, {
-	version: "1.12.1",
-
-	define: function( name, mode, effect ) {
-		if ( !effect ) {
-			effect = mode;
-			mode = "effect";
-		}
-
-		$.effects.effect[ name ] = effect;
-		$.effects.effect[ name ].mode = mode;
-
-		return effect;
-	},
-
-	scaledDimensions: function( element, percent, direction ) {
-		if ( percent === 0 ) {
-			return {
-				height: 0,
-				width: 0,
-				outerHeight: 0,
-				outerWidth: 0
-			};
-		}
-
-		var x = direction !== "horizontal" ? ( ( percent || 100 ) / 100 ) : 1,
-			y = direction !== "vertical" ? ( ( percent || 100 ) / 100 ) : 1;
-
-		return {
-			height: element.height() * y,
-			width: element.width() * x,
-			outerHeight: element.outerHeight() * y,
-			outerWidth: element.outerWidth() * x
-		};
-
-	},
-
-	clipToBox: function( animation ) {
-		return {
-			width: animation.clip.right - animation.clip.left,
-			height: animation.clip.bottom - animation.clip.top,
-			left: animation.clip.left,
-			top: animation.clip.top
-		};
-	},
-
-	// Injects recently queued functions to be first in line (after "inprogress")
-	unshift: function( element, queueLength, count ) {
-		var queue = element.queue();
-
-		if ( queueLength > 1 ) {
-			queue.splice.apply( queue,
-				[ 1, 0 ].concat( queue.splice( queueLength, count ) ) );
-		}
-		element.dequeue();
-	},
-
-	saveStyle: function( element ) {
-		element.data( dataSpaceStyle, element[ 0 ].style.cssText );
-	},
-
-	restoreStyle: function( element ) {
-		element[ 0 ].style.cssText = element.data( dataSpaceStyle ) || "";
-		element.removeData( dataSpaceStyle );
-	},
-
-	mode: function( element, mode ) {
-		var hidden = element.is( ":hidden" );
-
-		if ( mode === "toggle" ) {
-			mode = hidden ? "show" : "hide";
-		}
-		if ( hidden ? mode === "hide" : mode === "show" ) {
-			mode = "none";
-		}
-		return mode;
-	},
-
-	// Translates a [top,left] array into a baseline value
-	getBaseline: function( origin, original ) {
-		var y, x;
-
-		switch ( origin[ 0 ] ) {
-		case "top":
-			y = 0;
-			break;
-		case "middle":
-			y = 0.5;
-			break;
-		case "bottom":
-			y = 1;
-			break;
-		default:
-			y = origin[ 0 ] / original.height;
-		}
-
-		switch ( origin[ 1 ] ) {
-		case "left":
-			x = 0;
-			break;
-		case "center":
-			x = 0.5;
-			break;
-		case "right":
-			x = 1;
-			break;
-		default:
-			x = origin[ 1 ] / original.width;
-		}
-
-		return {
-			x: x,
-			y: y
-		};
-	},
-
-	// Creates a placeholder element so that the original element can be made absolute
-	createPlaceholder: function( element ) {
-		var placeholder,
-			cssPosition = element.css( "position" ),
-			position = element.position();
-
-		// Lock in margins first to account for form elements, which
-		// will change margin if you explicitly set height
-		// see: http://jsfiddle.net/JZSMt/3/ https://bugs.webkit.org/show_bug.cgi?id=107380
-		// Support: Safari
-		element.css( {
-			marginTop: element.css( "marginTop" ),
-			marginBottom: element.css( "marginBottom" ),
-			marginLeft: element.css( "marginLeft" ),
-			marginRight: element.css( "marginRight" )
-		} )
-		.outerWidth( element.outerWidth() )
-		.outerHeight( element.outerHeight() );
-
-		if ( /^(static|relative)/.test( cssPosition ) ) {
-			cssPosition = "absolute";
-
-			placeholder = $( "<" + element[ 0 ].nodeName + ">" ).insertAfter( element ).css( {
-
-				// Convert inline to inline block to account for inline elements
-				// that turn to inline block based on content (like img)
-				display: /^(inline|ruby)/.test( element.css( "display" ) ) ?
-					"inline-block" :
-					"block",
-				visibility: "hidden",
-
-				// Margins need to be set to account for margin collapse
-				marginTop: element.css( "marginTop" ),
-				marginBottom: element.css( "marginBottom" ),
-				marginLeft: element.css( "marginLeft" ),
-				marginRight: element.css( "marginRight" ),
-				"float": element.css( "float" )
-			} )
-			.outerWidth( element.outerWidth() )
-			.outerHeight( element.outerHeight() )
-			.addClass( "ui-effects-placeholder" );
-
-			element.data( dataSpace + "placeholder", placeholder );
-		}
-
-		element.css( {
-			position: cssPosition,
-			left: position.left,
-			top: position.top
-		} );
-
-		return placeholder;
-	},
-
-	removePlaceholder: function( element ) {
-		var dataKey = dataSpace + "placeholder",
-				placeholder = element.data( dataKey );
-
-		if ( placeholder ) {
-			placeholder.remove();
-			element.removeData( dataKey );
-		}
-	},
-
-	// Removes a placeholder if it exists and restores
-	// properties that were modified during placeholder creation
-	cleanUp: function( element ) {
-		$.effects.restoreStyle( element );
-		$.effects.removePlaceholder( element );
-	},
-
-	setTransition: function( element, list, factor, value ) {
-		value = value || {};
-		$.each( list, function( i, x ) {
-			var unit = element.cssUnit( x );
-			if ( unit[ 0 ] > 0 ) {
-				value[ x ] = unit[ 0 ] * factor + unit[ 1 ];
-			}
-		} );
-		return value;
-	}
-} );
-
-// Return an effect options object for the given parameters:
-function _normalizeArguments( effect, options, speed, callback ) {
-
-	// Allow passing all options as the first parameter
-	if ( $.isPlainObject( effect ) ) {
-		options = effect;
-		effect = effect.effect;
-	}
-
-	// Convert to an object
-	effect = { effect: effect };
-
-	// Catch (effect, null, ...)
-	if ( options == null ) {
-		options = {};
-	}
-
-	// Catch (effect, callback)
-	if ( $.isFunction( options ) ) {
-		callback = options;
-		speed = null;
-		options = {};
-	}
-
-	// Catch (effect, speed, ?)
-	if ( typeof options === "number" || $.fx.speeds[ options ] ) {
-		callback = speed;
-		speed = options;
-		options = {};
-	}
-
-	// Catch (effect, options, callback)
-	if ( $.isFunction( speed ) ) {
-		callback = speed;
-		speed = null;
-	}
-
-	// Add options to effect
-	if ( options ) {
-		$.extend( effect, options );
-	}
-
-	speed = speed || options.duration;
-	effect.duration = $.fx.off ? 0 :
-		typeof speed === "number" ? speed :
-		speed in $.fx.speeds ? $.fx.speeds[ speed ] :
-		$.fx.speeds._default;
-
-	effect.complete = callback || options.complete;
-
-	return effect;
-}
-
-function standardAnimationOption( option ) {
-
-	// Valid standard speeds (nothing, number, named speed)
-	if ( !option || typeof option === "number" || $.fx.speeds[ option ] ) {
-		return true;
-	}
-
-	// Invalid strings - treat as "normal" speed
-	if ( typeof option === "string" && !$.effects.effect[ option ] ) {
-		return true;
-	}
-
-	// Complete callback
-	if ( $.isFunction( option ) ) {
-		return true;
-	}
-
-	// Options hash (but not naming an effect)
-	if ( typeof option === "object" && !option.effect ) {
-		return true;
-	}
-
-	// Didn't match any standard API
-	return false;
-}
-
-$.fn.extend( {
-	effect: function( /* effect, options, speed, callback */ ) {
-		var args = _normalizeArguments.apply( this, arguments ),
-			effectMethod = $.effects.effect[ args.effect ],
-			defaultMode = effectMethod.mode,
-			queue = args.queue,
-			queueName = queue || "fx",
-			complete = args.complete,
-			mode = args.mode,
-			modes = [],
-			prefilter = function( next ) {
-				var el = $( this ),
-					normalizedMode = $.effects.mode( el, mode ) || defaultMode;
-
-				// Sentinel for duck-punching the :animated psuedo-selector
-				el.data( dataSpaceAnimated, true );
-
-				// Save effect mode for later use,
-				// we can't just call $.effects.mode again later,
-				// as the .show() below destroys the initial state
-				modes.push( normalizedMode );
-
-				// See $.uiBackCompat inside of run() for removal of defaultMode in 1.13
-				if ( defaultMode && ( normalizedMode === "show" ||
-						( normalizedMode === defaultMode && normalizedMode === "hide" ) ) ) {
-					el.show();
-				}
-
-				if ( !defaultMode || normalizedMode !== "none" ) {
-					$.effects.saveStyle( el );
-				}
-
-				if ( $.isFunction( next ) ) {
-					next();
-				}
-			};
-
-		if ( $.fx.off || !effectMethod ) {
-
-			// Delegate to the original method (e.g., .show()) if possible
-			if ( mode ) {
-				return this[ mode ]( args.duration, complete );
-			} else {
-				return this.each( function() {
-					if ( complete ) {
-						complete.call( this );
-					}
-				} );
-			}
-		}
-
-		function run( next ) {
-			var elem = $( this );
-
-			function cleanup() {
-				elem.removeData( dataSpaceAnimated );
-
-				$.effects.cleanUp( elem );
-
-				if ( args.mode === "hide" ) {
-					elem.hide();
-				}
-
-				done();
-			}
-
-			function done() {
-				if ( $.isFunction( complete ) ) {
-					complete.call( elem[ 0 ] );
-				}
-
-				if ( $.isFunction( next ) ) {
-					next();
-				}
-			}
-
-			// Override mode option on a per element basis,
-			// as toggle can be either show or hide depending on element state
-			args.mode = modes.shift();
-
-			if ( $.uiBackCompat !== false && !defaultMode ) {
-				if ( elem.is( ":hidden" ) ? mode === "hide" : mode === "show" ) {
-
-					// Call the core method to track "olddisplay" properly
-					elem[ mode ]();
-					done();
-				} else {
-					effectMethod.call( elem[ 0 ], args, done );
-				}
-			} else {
-				if ( args.mode === "none" ) {
-
-					// Call the core method to track "olddisplay" properly
-					elem[ mode ]();
-					done();
-				} else {
-					effectMethod.call( elem[ 0 ], args, cleanup );
-				}
-			}
-		}
-
-		// Run prefilter on all elements first to ensure that
-		// any showing or hiding happens before placeholder creation,
-		// which ensures that any layout changes are correctly captured.
-		return queue === false ?
-			this.each( prefilter ).each( run ) :
-			this.queue( queueName, prefilter ).queue( queueName, run );
-	},
-
-	show: ( function( orig ) {
-		return function( option ) {
-			if ( standardAnimationOption( option ) ) {
-				return orig.apply( this, arguments );
-			} else {
-				var args = _normalizeArguments.apply( this, arguments );
-				args.mode = "show";
-				return this.effect.call( this, args );
-			}
-		};
-	} )( $.fn.show ),
-
-	hide: ( function( orig ) {
-		return function( option ) {
-			if ( standardAnimationOption( option ) ) {
-				return orig.apply( this, arguments );
-			} else {
-				var args = _normalizeArguments.apply( this, arguments );
-				args.mode = "hide";
-				return this.effect.call( this, args );
-			}
-		};
-	} )( $.fn.hide ),
-
-	toggle: ( function( orig ) {
-		return function( option ) {
-			if ( standardAnimationOption( option ) || typeof option === "boolean" ) {
-				return orig.apply( this, arguments );
-			} else {
-				var args = _normalizeArguments.apply( this, arguments );
-				args.mode = "toggle";
-				return this.effect.call( this, args );
-			}
-		};
-	} )( $.fn.toggle ),
-
-	cssUnit: function( key ) {
-		var style = this.css( key ),
-			val = [];
-
-		$.each( [ "em", "px", "%", "pt" ], function( i, unit ) {
-			if ( style.indexOf( unit ) > 0 ) {
-				val = [ parseFloat( style ), unit ];
-			}
-		} );
-		return val;
-	},
-
-	cssClip: function( clipObj ) {
-		if ( clipObj ) {
-			return this.css( "clip", "rect(" + clipObj.top + "px " + clipObj.right + "px " +
-				clipObj.bottom + "px " + clipObj.left + "px)" );
-		}
-		return parseClip( this.css( "clip" ), this );
-	},
-
-	transfer: function( options, done ) {
-		var element = $( this ),
-			target = $( options.to ),
-			targetFixed = target.css( "position" ) === "fixed",
-			body = $( "body" ),
-			fixTop = targetFixed ? body.scrollTop() : 0,
-			fixLeft = targetFixed ? body.scrollLeft() : 0,
-			endPosition = target.offset(),
-			animation = {
-				top: endPosition.top - fixTop,
-				left: endPosition.left - fixLeft,
-				height: target.innerHeight(),
-				width: target.innerWidth()
-			},
-			startPosition = element.offset(),
-			transfer = $( "<div class='ui-effects-transfer'></div>" )
-				.appendTo( "body" )
-				.addClass( options.className )
-				.css( {
-					top: startPosition.top - fixTop,
-					left: startPosition.left - fixLeft,
-					height: element.innerHeight(),
-					width: element.innerWidth(),
-					position: targetFixed ? "fixed" : "absolute"
-				} )
-				.animate( animation, options.duration, options.easing, function() {
-					transfer.remove();
-					if ( $.isFunction( done ) ) {
-						done();
-					}
-				} );
-	}
-} );
-
-function parseClip( str, element ) {
-		var outerWidth = element.outerWidth(),
-			outerHeight = element.outerHeight(),
-			clipRegex = /^rect\((-?\d*\.?\d*px|-?\d+%|auto),?\s*(-?\d*\.?\d*px|-?\d+%|auto),?\s*(-?\d*\.?\d*px|-?\d+%|auto),?\s*(-?\d*\.?\d*px|-?\d+%|auto)\)$/,
-			values = clipRegex.exec( str ) || [ "", 0, outerWidth, outerHeight, 0 ];
-
-		return {
-			top: parseFloat( values[ 1 ] ) || 0,
-			right: values[ 2 ] === "auto" ? outerWidth : parseFloat( values[ 2 ] ),
-			bottom: values[ 3 ] === "auto" ? outerHeight : parseFloat( values[ 3 ] ),
-			left: parseFloat( values[ 4 ] ) || 0
-		};
-}
-
-$.fx.step.clip = function( fx ) {
-	if ( !fx.clipInit ) {
-		fx.start = $( fx.elem ).cssClip();
-		if ( typeof fx.end === "string" ) {
-			fx.end = parseClip( fx.end, fx.elem );
-		}
-		fx.clipInit = true;
-	}
-
-	$( fx.elem ).cssClip( {
-		top: fx.pos * ( fx.end.top - fx.start.top ) + fx.start.top,
-		right: fx.pos * ( fx.end.right - fx.start.right ) + fx.start.right,
-		bottom: fx.pos * ( fx.end.bottom - fx.start.bottom ) + fx.start.bottom,
-		left: fx.pos * ( fx.end.left - fx.start.left ) + fx.start.left
-	} );
-};
-
-} )();
-
-/******************************************************************************/
-/*********************************** EASING ***********************************/
-/******************************************************************************/
-
-( function() {
-
-// Based on easing equations from Robert Penner (http://www.robertpenner.com/easing)
-
-var baseEasings = {};
-
-$.each( [ "Quad", "Cubic", "Quart", "Quint", "Expo" ], function( i, name ) {
-	baseEasings[ name ] = function( p ) {
-		return Math.pow( p, i + 2 );
-	};
-} );
-
-$.extend( baseEasings, {
-	Sine: function( p ) {
-		return 1 - Math.cos( p * Math.PI / 2 );
-	},
-	Circ: function( p ) {
-		return 1 - Math.sqrt( 1 - p * p );
-	},
-	Elastic: function( p ) {
-		return p === 0 || p === 1 ? p :
-			-Math.pow( 2, 8 * ( p - 1 ) ) * Math.sin( ( ( p - 1 ) * 80 - 7.5 ) * Math.PI / 15 );
-	},
-	Back: function( p ) {
-		return p * p * ( 3 * p - 2 );
-	},
-	Bounce: function( p ) {
-		var pow2,
-			bounce = 4;
-
-		while ( p < ( ( pow2 = Math.pow( 2, --bounce ) ) - 1 ) / 11 ) {}
-		return 1 / Math.pow( 4, 3 - bounce ) - 7.5625 * Math.pow( ( pow2 * 3 - 2 ) / 22 - p, 2 );
-	}
-} );
-
-$.each( baseEasings, function( name, easeIn ) {
-	$.easing[ "easeIn" + name ] = easeIn;
-	$.easing[ "easeOut" + name ] = function( p ) {
-		return 1 - easeIn( 1 - p );
-	};
-	$.easing[ "easeInOut" + name ] = function( p ) {
-		return p < 0.5 ?
-			easeIn( p * 2 ) / 2 :
-			1 - easeIn( p * -2 + 2 ) / 2;
-	};
-} );
-
-} )();
-
-var effect = $.effects;
-
-
-/*!
- * jQuery UI Effects Blind 1.12.1
- * http://jqueryui.com
- *
- * Copyright jQuery Foundation and other contributors
- * Released under the MIT license.
- * http://jquery.org/license
- */
-
-//>>label: Blind Effect
-//>>group: Effects
-//>>description: Blinds the element.
-//>>docs: http://api.jqueryui.com/blind-effect/
-//>>demos: http://jqueryui.com/effect/
-
-
-
-var effectsEffectBlind = $.effects.define( "blind", "hide", function( options, done ) {
-	var map = {
-			up: [ "bottom", "top" ],
-			vertical: [ "bottom", "top" ],
-			down: [ "top", "bottom" ],
-			left: [ "right", "left" ],
-			horizontal: [ "right", "left" ],
-			right: [ "left", "right" ]
-		},
-		element = $( this ),
-		direction = options.direction || "up",
-		start = element.cssClip(),
-		animate = { clip: $.extend( {}, start ) },
-		placeholder = $.effects.createPlaceholder( element );
-
-	animate.clip[ map[ direction ][ 0 ] ] = animate.clip[ map[ direction ][ 1 ] ];
-
-	if ( options.mode === "show" ) {
-		element.cssClip( animate.clip );
-		if ( placeholder ) {
-			placeholder.css( $.effects.clipToBox( animate ) );
-		}
-
-		animate.clip = start;
-	}
-
-	if ( placeholder ) {
-		placeholder.animate( $.effects.clipToBox( animate ), options.duration, options.easing );
-	}
-
-	element.animate( animate, {
-		queue: false,
-		duration: options.duration,
-		easing: options.easing,
-		complete: done
-	} );
-} );
-
 // NOTE: Original jQuery UI wrapper was replaced. See README-Fancytree.md
 // }));
 })(jQuery);
@@ -3045,8 +1365,8 @@ var effectsEffectBlind = $.effects.define( "blind", "hide", function( options, d
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 /** Core Fancytree module.
@@ -3188,6 +1508,62 @@ function isVersionAtLeast(dottedVersion, major, minor, patch){
 	}
 	return true;
 }
+
+
+/**
+ * Deep-merge a list of objects (but replace array-type options).
+ *
+ * jQuery's $.extend(true, ...) method does a deep merge, that also merges Arrays.
+ * This variant is used to merge extension defaults with user options, and should
+ * merge objects, but override arrays (for example the `triggerStart: [...]` option
+ * of ext-edit). Also `null` values are copied over and not skipped.
+ *
+ * See issue #876
+ *
+ * Example:
+ * _simpleDeepMerge({}, o1, o2);
+ */
+ function _simpleDeepMerge() {
+	var options, name, src, copy, clone,
+		target = arguments[ 0 ] || {},
+		i = 1,
+		length = arguments.length;
+
+	// Handle case when target is a string or something (possible in deep copy)
+	if ( typeof target !== "object" && !$.isFunction( target ) ) {
+		target = {};
+	}
+	if ( i === length ) {
+		throw "need at least two args";
+	}
+	for ( ; i < length; i++ ) {
+		// Only deal with non-null/undefined values
+		if ( ( options = arguments[ i ] ) != null ) {
+			// Extend the base object
+			for ( name in options ) {
+				src = target[ name ];
+				copy = options[ name ];
+				// Prevent never-ending loop
+				if ( target === copy ) {
+					continue;
+				}
+				// Recurse if we're merging plain objects
+				// (NOTE: unlike $.extend, we don't merge arrays, but relace them)
+				if ( copy && $.isPlainObject( copy ) ) {
+					clone = src && $.isPlainObject( src ) ? src : {};
+					// Never move original objects, clone them
+					target[ name ] = _simpleDeepMerge( clone, copy );
+					// Don't bring in undefined values
+				} else if ( copy !== undefined ) {
+					target[ name ] = copy;
+				}
+			}
+		}
+	}
+	// Return the modified object
+	return target;
+}
+
 
 /** Return a wrapper that calls sub.methodName() and exposes
  *  this             : tree
@@ -4739,7 +3115,7 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 	scheduleAction: function(mode, ms) {
 		if( this.tree.timer ) {
 			clearTimeout(this.tree.timer);
-//            this.tree.debug("clearTimeout(%o)", this.tree.timer);
+			this.tree.debug("clearTimeout(%o)", this.tree.timer);
 		}
 		this.tree.timer = null;
 		var self = this; // required for closures
@@ -4773,29 +3149,42 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 	 */
 	scrollIntoView: function(effects, options) {
 		if( options !== undefined && _isNode(options) ) {
-			this.warn("scrollIntoView() with 'topNode' option is deprecated since 2014-05-08. Use 'options.topNode' instead.");
-			options = {topNode: options};
+			throw "scrollIntoView() with 'topNode' option is deprecated since 2014-05-08. Use 'options.topNode' instead.";
 		}
-		// this.$scrollParent = (this.options.scrollParent === "auto") ? $ul.scrollParent() : $(this.options.scrollParent);
-		// this.$scrollParent = this.$scrollParent.length ? this.$scrollParent || this.$container;
-
-		var topNodeY, nodeY, horzScrollbarHeight, containerOffsetTop,
-			opts = $.extend({
+		// The scroll parent is typically the plain tree's <UL> container.
+		// For ext-table, we choose the nearest parent that has `position: relative`
+		// and `overflow` set.
+		// (This default can be overridden by the local or global `scrollParent` option.)
+		var opts = $.extend({
 				effects: (effects === true) ? {duration: 200, queue: false} : effects,
 				scrollOfs: this.tree.options.scrollOfs,
-				scrollParent: this.tree.options.scrollParent || this.tree.$container,
+				scrollParent: this.tree.options.scrollParent,
 				topNode: null
 			}, options),
+			$scrollParent = opts.scrollParent;
+
+		if( !$scrollParent ) {
+			$scrollParent = this.tree.tbody ? this.tree.$container.scrollParent() : this.tree.$container;
+		} else if( !$scrollParent.jquery ) {
+			// Make sure we have a jQuery object
+			$scrollParent = $($scrollParent);
+		}
+		if( $scrollParent[0] === document ) {
+			// `document` may returned by $().scrollParent(), if nothing is found,
+			// but would not work:
+			$scrollParent = $(window);
+		}
+
+		var topNodeY, nodeY, horzScrollbarHeight, containerOffsetTop,
 			dfd = new $.Deferred(),
 			that = this,
 			nodeHeight = $(this.span).height(),
-			$container = $(opts.scrollParent),
 			topOfs = opts.scrollOfs.top || 0,
 			bottomOfs = opts.scrollOfs.bottom || 0,
-			containerHeight = $container.height(),// - topOfs - bottomOfs,
-			scrollTop = $container.scrollTop(),
-			$animateTarget = $container,
-			isParentWindow = $container[0] === window,
+			containerHeight = $scrollParent.height(),
+			scrollTop = $scrollParent.scrollTop(),
+			$animateTarget = $scrollParent,
+			isParentWindow = $scrollParent[0] === window,
 			topNode = opts.topNode || null,
 			newScrollTop = null;
 
@@ -4812,13 +3201,13 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 			$animateTarget = $("html,body");
 
 		} else {
-			_assert($container[0] !== document && $container[0] !== document.body,
+			_assert($scrollParent[0] !== document && $scrollParent[0] !== document.body,
 				"scrollParent should be a simple element or `window`, not document or body.");
 
-			containerOffsetTop = $container.offset().top,
+			containerOffsetTop = $scrollParent.offset().top,
 			nodeY = $(this.span).offset().top - containerOffsetTop + scrollTop; // relative to scroll parent
 			topNodeY = topNode ? $(topNode.span).offset().top - containerOffsetTop + scrollTop : 0;
-			horzScrollbarHeight = Math.max(0, ($container.innerHeight() - $container[0].clientHeight));
+			horzScrollbarHeight = Math.max(0, ($scrollParent.innerHeight() - $scrollParent[0].clientHeight));
 			containerHeight -= horzScrollbarHeight;
 		}
 
@@ -4862,8 +3251,11 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 	},
 
 	/**Activate this node.
+	 *
+	 * The `cell` option requires the ext-table and ext-ariagrid extensions.
+	 *
 	 * @param {boolean} [flag=true] pass false to deactivate
-	 * @param {object} [opts] additional options. Defaults to {noEvents: false, noFocus: false}
+	 * @param {object} [opts] additional options. Defaults to {noEvents: false, noFocus: false, cell: null}
 	 * @returns {$.Promise}
 	 */
 	setActive: function(flag, opts){
@@ -5426,14 +3818,15 @@ Fancytree.prototype = /** @lends Fancytree# */{
 	 * If activeVisible option is set, all parents will be expanded as necessary.
 	 * Pass key = false, to deactivate the current node only.
 	 * @param {string} key
+	 * @param {object} [opts] additional options. Defaults to {noEvents: false, noFocus: false}
 	 * @returns {FancytreeNode} activated node (null, if not found)
 	 */
-	activateKey: function(key) {
+	activateKey: function(key, opts) {
 		var node = this.getNodeByKey(key);
 		if(node){
-			node.setActive();
+			node.setActive(true, opts);
 		}else if(this.activeNode){
-			this.activeNode.setActive(false);
+			this.activeNode.setActive(false, opts);
 		}
 		return node;
 	},
@@ -5503,8 +3896,18 @@ Fancytree.prototype = /** @lends Fancytree# */{
 			consoleApply("log", arguments);
 		}
 	},
-	// TODO: disable()
-	// TODO: enable()
+	/** Enable (or disable) the tree control.
+	 *
+	 * @param {boolean} [flag=true] pass false to disable
+	 * @since 2.30
+	 */
+	enable: function(flag){
+		if( flag === false ) {
+			this.widget.disable();
+		} else {
+			this.widget.enable();
+		}
+	},
 	/** Temporarily suppress rendering to improve performance on bulk-updates.
 	 *
 	 * @param {boolean} flag
@@ -5527,6 +3930,23 @@ Fancytree.prototype = /** @lends Fancytree# */{
 			this.debug("enableUpdate(false)...");
 		}
 		return !flag; // return previous value
+	},
+	/** Expand (or collapse) all parent nodes.
+	 *
+	 * This convenience method uses `tree.visit()` and `tree.setExpanded()`
+	 * internally.
+	 *
+	 * @param {boolean} [flag=true] pass false to collapse
+	 * @param {object} [opts] passed to setExpanded()
+	 * @since 2.30
+	 */
+	expandAll: function(flag, opts){
+		flag = (flag !== false);
+		this.visit(function(node){
+			if( node.hasChildren() !== false && node.isExpanded() !== flag ) {
+				node.setExpanded(flag, opts);
+			}
+		});
 	},
 	/**Find all nodes that matches condition.
 	 *
@@ -5708,9 +4128,18 @@ Fancytree.prototype = /** @lends Fancytree# */{
 		return this.focusNode;
 	},
 	/**
+	 * Return current option value.
+	 * (Note: this is the preferred variant of `$().fancytree("option", "KEY")`)
+	 *
+	 * @param {string} name option name (may contain '.')
+	 * @returns {any}
+	 */
+	getOption: function(optionName) {
+		return this.widget.option(optionName);
+	},
+	/**
 	 * Return node with a given key or null if not found.
 	 *
-	 * Not
 	 * @param {string} key
 	 * @param {FancytreeNode} [searchRoot] only search below this node
 	 * @returns {FancytreeNode | null}
@@ -6022,6 +4451,15 @@ Fancytree.prototype = /** @lends Fancytree# */{
 	 */
 	setFocus: function(flag) {
 		return this._callHook("treeSetFocus", this, flag);
+	},
+	/**
+	 * Set current option value.
+	 * (Note: this is the preferred variant of `$().fancytree("option", "KEY", VALUE)`)
+	 * @param {string} name option name (may contain '.')
+	 * @param {any} new value
+	 */
+	setOption: function(optionName, value) {
+		return this.widget.option(optionName, value);
 	},
 	/**
 	 * Return all nodes as nested list of {@link NodeData}.
@@ -6421,11 +4859,11 @@ $.extend(Fancytree.prototype,
 			if(ajax.debugDelay){
 				// simulate a slow server
 				delay = ajax.debugDelay;
+				delete ajax.debugDelay;  // remove debug option
 				if($.isArray(delay)){ // random delay range [min..max]
 					delay = delay[0] + Math.random() * (delay[1] - delay[0]);
 				}
 				node.warn("nodeLoadChildren waiting debugDelay " + Math.round(delay) + " ms ...");
-				ajax.debugDelay = false;
 				dfd = $.Deferred(function (dfd) {
 					setTimeout(function () {
 						$.ajax(ajax)
@@ -6459,11 +4897,17 @@ $.extend(Fancytree.prototype,
 				// but it is also called for JSONP
 				if( ctx.options.postProcess ){
 					try {
+						// The handler may either
+						//   - modify `ctx.response` in-place (and leave `ctx.result` undefined)
+						//     => res = undefined
+						//   - return a replacement in `ctx.result`
+						//     => res = <new data>
+						// If res contains an `error` property, an error status is displayed
 						res = tree._triggerNodeEvent("postProcess", ctx, ctx.originalEvent, {
 							response: data, error: null, dataType: this.dataType
 						});
 					} catch(e) {
-						res = { error: e, message: "" + e, details: "postProcess failed"};
+						res = { error: e, message: "" + e, details: "postProcess failed" };
 					}
 					if( res.error ) {
 						errorObj = $.isPlainObject(res.error) ? res.error : {message: res.error};
@@ -6471,7 +4915,11 @@ $.extend(Fancytree.prototype,
 						source.rejectWith(this, [errorObj]);
 						return;
 					}
-					data = $.isArray(res) ? res : data;
+					if(  $.isArray(res) || ($.isPlainObject(res) && $.isArray(res.children)) ) {
+						// Use `ctx.result` if valid
+						// (otherwise use existing data, which may have been modified in-place)
+						data = res;
+					}
 
 				} else if (data && data.hasOwnProperty("d") && ctx.options.enableAspx ) {
 					// Process ASPX WebMethod JSON object inside "d" property
@@ -6534,15 +4982,19 @@ $.extend(Fancytree.prototype,
 			if( ctx.options.postProcess ){
 				// #792: Call postProcess for non-deferred source
 				var res = tree._triggerNodeEvent("postProcess", ctx, ctx.originalEvent, {
-					response: source, error: null, dataType: typeof source
-				});
+						response: source, error: null, dataType: typeof source
+					});
 
-				source = $.isArray(res) ? res : source;
+				if(  $.isArray(res) || ($.isPlainObject(res) && $.isArray(res.children)) ) {
+					// Use `ctx.result` if valid
+					// (otherwise use existing data, which may have been modified in-place)
+					source = res;
+				}
 			}
 		}
 		// $.when(source) resolves also for non-deferreds
 		return $.when(source).done(function(children){
-			var metaData;
+			var metaData, noDataRes;
 
 			if( $.isPlainObject(children) ){
 				// We got {foo: 'abc', children: [...]}
@@ -6564,6 +5016,19 @@ $.extend(Fancytree.prototype,
 			}
 			_assert($.isArray(children), "expected array of children");
 			node._setChildren(children);
+
+			if( tree.options.nodata && children.length === 0 ) {
+				if( $.isFunction(tree.options.nodata) ) {
+					noDataRes = tree.options.nodata.call(tree, {type: "nodata"}, ctx);
+				} else if( tree.options.nodata === true && node.isRootNode() ) {
+					noDataRes = tree.options.strings.nodata;
+				} else if( typeof tree.options.nodata === "string" && node.isRootNode() ) {
+					noDataRes = tree.options.nodata;
+				}
+				if( noDataRes ) {
+					node.setStatus("nodata", noDataRes);
+				}
+			}
 			// trigger fancytreeloadchildren
 			tree._triggerNodeEvent("loadChildren", node);
 		});
@@ -7130,6 +5595,7 @@ $.extend(Fancytree.prototype,
 			opts = ctx.options,
 			noEvents = (callOpts.noEvents === true),
 			noFocus = (callOpts.noFocus === true),
+			scroll = ((callOpts.scrollIntoView !== false)),
 			isActive = (node === tree.activeNode);
 
 		// flag defaults to true
@@ -7150,9 +5616,12 @@ $.extend(Fancytree.prototype,
 				tree.nodeSetActive(subCtx, false);
 				_assert(tree.activeNode === null, "deactivate was out of sync?");
 			}
+
 			if(opts.activeVisible){
 				// If no focus is set (noFocus: true) and there is no focused node, this node is made visible.
-				node.makeVisible({scrollIntoView: noFocus && tree.focusNode == null});
+				// scroll = noFocus && tree.focusNode == null;
+				// #863: scroll by default (unless `scrollIntoView: false` was passed)
+				node.makeVisible({scrollIntoView: scroll});
 			}
 			tree.activeNode = node;
 			tree.nodeRenderStatus(ctx);
@@ -7271,20 +5740,48 @@ $.extend(Fancytree.prototype,
 				} else {
 					// The UI toggle() effect works with the ext-wide extension,
 					// while jQuery.animate() has problems when the title span
-					// has positon: absolute.
+					// has position: absolute.
 					// Since jQuery UI 1.12, the blind effect requires the parent
 					// element to have 'position: relative'.
 					// See #716, #717
 					$(node.li).addClass(cn.animating);  // #717
-//					node.info("fancytree-animating start: " + node.li.className);
-					$(node.ul)
-						.addClass(cn.animating)  // # 716
-						.toggle(effect.effect, effect.options, effect.duration, function(){
-//							node.info("fancytree-animating end: " + node.li.className);
+
+					if (!$.isFunction($(node.ul)[effect.effect]) ) {
+						// The UI toggle() effect works with the ext-wide extension,
+						// while jQuery.animate() has problems when the title span
+						// has positon: absolute.
+						// Since jQuery UI 1.12, the blind effect requires the parent
+						// element to have 'position: relative'.
+						// See #716, #717
+						tree.debug("use specified effect (" + effect.effect + ") with the jqueryui.toggle method");
+
+						// try to stop an animation that might be already in progress
+						$(node.ul).stop(true, true); //< does not work after resetLazy has been called for a node whose animation wasn't complete and effect was "blind"
+
+						// dirty fix to remove a defunct animation (effect: "blind") after resetLazy has been called
+						$(node.ul).parent().find(".ui-effects-placeholder").remove();
+
+						$(node.ul).toggle(effect.effect, effect.options, effect.duration, function() {
+							node.info("fancytree-animating end: " + node.li.className);
 							$(this).removeClass(cn.animating);  // #716
 							$(node.li).removeClass(cn.animating);  // #717
 							callback();
 						});
+
+					} else {
+						tree.debug("use jquery." + effect.effect + " method");
+
+						$(node.ul)[effect.effect]({
+							duration: effect.duration,
+							always: function() {
+										node.info("fancytree-animating end: " + node.li.className);
+										$(this).removeClass(cn.animating);  // #716
+										$(node.li).removeClass(cn.animating);  // #717
+										callback();
+									}
+						});
+					}
+
 					return;
 				}
 			}
@@ -7542,7 +6039,7 @@ $.extend(Fancytree.prototype,
 			break;
 		case "nodata":
 			_setStatusNode({
-				title: tree.options.strings.noData,
+				title: message || tree.options.strings.noData,
 				// icon: false,
 				checkbox: false,
 				tooltip: details
@@ -7748,7 +6245,13 @@ $.extend(Fancytree.prototype,
 			}
 		}
 	},
-	/** Widget option was set using `$().fancytree("option", "foo", "bar")`.
+	/** Widget option was set using `$().fancytree("option", "KEY", VALUE)`.
+	 *
+	 * Note: `key` may reference a nested option, e.g. 'dnd5.scroll'.
+	 * In this case `value`contains the complete, modified `dnd5` option hash.
+	 * We can check for changed values like
+	 *     if( value.scroll !== tree.options.dnd5.scroll ) {...}
+	 *
 	 * @param {EventData} ctx
 	 * @param {string} key option name
 	 * @param {any} value option value
@@ -7852,7 +6355,8 @@ $.widget("ui.fancytree",
 		// fx: { height: "toggle", duration: 200 },
 		// toggleEffect: { effect: "drop", options: {direction: "left"}, duration: 200 },
 		// toggleEffect: { effect: "slide", options: {direction: "up"}, duration: 200 },
-		toggleEffect: { effect: "blind", options: {direction: "vertical", scale: "box"}, duration: 200 },
+		//toggleEffect: { effect: "blind", options: {direction: "vertical", scale: "box"}, duration: 200 },
+		toggleEffect: { effect: "slideToggle", duration: 200 }, //< "toggle" or "slideToggle" to use jQuery instead of jQueryUI for toggleEffect animation
 		generateIds: false,
 		icon: true,
 		idPrefix: "ft_",
@@ -7860,6 +6364,7 @@ $.widget("ui.fancytree",
 		keyboard: true,
 		keyPathSeparator: "/",
 		minExpandLevel: 1,
+		nodata: true,               // (bool, string, or callback) display message, when no data available
 		quicksearch: false,
 		rtl: false,
 		scrollOfs: {top: 0, bottom: 0},
@@ -7920,7 +6425,15 @@ $.widget("ui.fancytree",
 			}
 			// Add extension options as tree.options.EXTENSION
 //			_assert(!this.tree.options[extName], "Extension name must not exist as option name: " + extName);
-			this.tree.options[extName] = $.extend(true, {}, extension.options, this.tree.options[extName]);
+
+			// console.info("extend " + extName, extension.options, this.tree.options[extName])
+			// issue #876: we want to replace custom array-options, not merge them
+			this.tree.options[extName] = _simpleDeepMerge({}, extension.options, this.tree.options[extName]);
+			// this.tree.options[extName] = $.extend(true, {}, extension.options, this.tree.options[extName]);
+
+			// console.info("extend " + extName + " =>", this.tree.options[extName])
+			// console.info("extend " + extName + " org default =>", extension.options)
+
 			// Add a namespace tree.ext.EXTENSION, to hold instance data
 			_assert(this.tree.ext[extName] === undefined, "Extension name must not exist as Fancytree.ext attribute: '" + extName + "'");
 //			this.tree[extName] = extension;
@@ -7966,7 +6479,7 @@ $.widget("ui.fancytree",
 		this._bind();
 	},
 
-	/* Use the _setOption method to respond to changes to options */
+	/* Use the _setOption method to respond to changes to options. */
 	_setOption: function(key, value) {
 		return this.tree._callHook("treeSetOption", this.tree, key, value);
 	},
@@ -8008,19 +6521,26 @@ $.widget("ui.fancytree",
 			var node = FT.getNode(event),
 				flag = (event.type === "focusin");
 
-			// tree.treeOnFocusInOut.call(tree, event);
-			// tree.debug("Tree container got event " + event.type, node, event, FT.getEventTarget(event));
-			if( flag && tree._getExpiringValue("focusin") ) {
-				// #789: IE 11 may send duplicate focusin events
-				FT.info("Ignored double focusin.");
+			if( !flag && node && $(event.target).is("a") ) {
+				// #764
+				node.debug("Ignored focusout on embedded <a> element.");
 				return;
 			}
-			tree._setExpiringValue("focusin", true, 50);
+			// tree.treeOnFocusInOut.call(tree, event);
+			// tree.debug("Tree container got event " + event.type, node, event, FT.getEventTarget(event));
+			if( flag ) {
+				if( tree._getExpiringValue("focusin") ) {
+					// #789: IE 11 may send duplicate focusin events
+					tree.debug("Ignored double focusin.");
+					return;
+				}
+				tree._setExpiringValue("focusin", true, 50);
 
-			if( flag && !node ) {
-				// #789: IE 11 may send focusin before mousdown(?)
-				node = tree._getExpiringValue("mouseDownNode");
-				if( node ) { FT.info("Reconstruct mouse target for focusin from recent event."); }
+				if( !node ) {
+					// #789: IE 11 may send focusin before mousdown(?)
+					node = tree._getExpiringValue("mouseDownNode");
+					if( node ) { tree.debug("Reconstruct mouse target for focusin from recent event."); }
+				}
 			}
 			if(node){
 				// For example clicking into an <input> that is part of a node
@@ -8159,7 +6679,7 @@ $.extend($.ui.fancytree,
 	/** @lends Fancytree_Static# */
 	{
 	/** @type {string} */
-	version: "2.28.0",      // Set to semver by 'grunt release'
+	version: "2.30.0",      // Set to semver by 'grunt release'
 	/** @type {string} */
 	buildType: "production", // Set to 'production' by 'grunt build'
 	/** @type {int} */
@@ -8257,6 +6777,9 @@ $.extend($.ui.fancytree,
 	 *
 	 * See http://jqueryui.com/upgrade-guide/1.9/#deprecated-offset-option-merged-into-my-and-at
 	 * and http://jsfiddle.net/mar10/6xtu9a4e/
+	 *
+	 * @param {object} opts
+	 * @returns {object} the (potentially modified) original opts hash object
 	 */
 	fixPositionOptions: function(opts) {
 		if( opts.offset || ("" + opts.my + opts.at ).indexOf("%") >= 0 ) {
@@ -8287,7 +6810,7 @@ $.extend($.ui.fancytree,
 	 *     TYPE: 'title' | 'prefix' | 'expander' | 'checkbox' | 'icon' | undefined
 	 */
 	getEventTarget: function(event){
-		var $target,
+		var $target, tree,
 			tcn = event && event.target ? event.target.className : "",
 			res = {node: this.getNode(event.target), type: undefined};
 		// We use a fast version of $(res.node).hasClass()
@@ -8308,7 +6831,8 @@ $.extend($.ui.fancytree,
 			$target = $(event.target);
 			if( $target.is("ul[role=group]") ) {
 				// #nnn: Clicking right to a node may hit the surrounding UL
-				FT.info("Ignoring click on outer UL.");
+				tree = res.node && res.node.tree;
+				(tree || FT).debug("Ignoring click on outer UL.");
 				res.node = null;
 			}else if( $target.closest(".fancytree-title").length ) {
 				// #228: clicking an embedded element inside a title
@@ -8703,8 +7227,8 @@ return $.ui.fancytree;
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 // To keep the global namespace clean, we wrap everything in a closure.
@@ -8775,7 +7299,8 @@ $.ui.fancytree._FancytreeNodeClass.prototype.updateCounters = function(){
 	node.data.childCounter = count;
 	if( (count || !extOpts.hideZeros) && (!node.isExpanded() || !extOpts.hideExpanded) ) {
 		if( !$badge.length ) {
-			$badge = $("<span class='fancytree-childcounter'/>").appendTo($("span.fancytree-icon", node.span));
+			$badge = $("<span class='fancytree-childcounter'/>")
+				.appendTo($("span.fancytree-icon,span.fancytree-custom-icon", node.span));
 		}
 		$badge.text(count);
 	} else {
@@ -8822,7 +7347,7 @@ $.ui.fancytree.registerExtension({
 // Every extension must be registered by a unique name.
 	name: "childcounter",
 // Version information should be compliant with [semver](http://semver.org)
-	version: "2.28.0",
+	version: "2.30.0",
 
 // Extension specific options and their defaults.
 // This options will be available as `tree.options.childcounter.hideExpanded`
@@ -8890,7 +7415,8 @@ $.ui.fancytree.registerExtension({
 		this._super(ctx, title);
 // Append a counter badge
 		if( (count || ! extOpts.hideZeros) && (!node.isExpanded() || !extOpts.hideExpanded) ){
-			$("span.fancytree-icon", node.span).append($("<span class='fancytree-childcounter'/>").text(count));
+			$("span.fancytree-icon,span.fancytree-custom-icon", node.span)
+				.append($("<span class='fancytree-childcounter'/>").text(count));
 		}
 	},
 // Overload the `setExpanded` hook, so the counters are updated
@@ -8922,8 +7448,8 @@ return $.ui.fancytree;
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 ;(function( factory ) {
@@ -8967,34 +7493,6 @@ function _removeArrayMember(arr, elem) {
 	}
 	return false;
 }
-
-
-// /**
-//  * Calculate a 32 bit FNV-1a hash
-//  * Found here: https://gist.github.com/vaiorabbit/5657561
-//  * Ref.: http://isthe.com/chongo/tech/comp/fnv/
-//  *
-//  * @param {string} str the input value
-//  * @param {boolean} [asString=false] set to true to return the hash value as
-//  *     8-digit hex string instead of an integer
-//  * @param {integer} [seed] optionally pass the hash of the previous chunk
-//  * @returns {integer | string}
-//  */
-// function hashFnv32a(str, asString, seed) {
-// 	/*jshint bitwise:false */
-// 	var i, l,
-// 		hval = (seed === undefined) ? 0x811c9dc5 : seed;
-
-// 	for (i = 0, l = str.length; i < l; i++) {
-// 		hval ^= str.charCodeAt(i);
-// 		hval += (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
-// 	}
-// 	if( asString ){
-// 		// Convert to 8 digit hex string
-// 		return ("0000000" + (hval >>> 0).toString(16)).substr(-8);
-// 	}
-// 	return hval >>> 0;
-// }
 
 
 /**
@@ -9067,14 +7565,9 @@ function hashMurmur3(key, asString, seed) {
 	return h1 >>> 0;
 }
 
-// console.info(hashMurmur3("costarring"));
-// console.info(hashMurmur3("costarring", true));
-// console.info(hashMurmur3("liquid"));
-// console.info(hashMurmur3("liquid", true));
-
 
 /*
- * Return a unique key for node by calculationg the hash of the parents refKey-list
+ * Return a unique key for node by calculating the hash of the parents refKey-list.
  */
 function calcUniqueKey(node) {
 	var key,
@@ -9087,7 +7580,7 @@ function calcUniqueKey(node) {
 
 
 /**
- * [ext-clones] Return a list of clone-nodes or null.
+ * [ext-clones] Return a list of clone-nodes (i.e. same refKey) or null.
  * @param {boolean} [includeSelf=false]
  * @returns {FancytreeNode[] | null}
  *
@@ -9268,7 +7761,7 @@ $.ui.fancytree._FancytreeClass.prototype.changeRefKey = function(oldRefKey, newR
  */
 $.ui.fancytree.registerExtension({
 	name: "clones",
-	version: "2.28.0",
+	version: "2.30.0",
 	// Default options for this extension.
 	options: {
 		highlightActiveClones: true, // set 'fancytree-active-clone' on active clones and all peers
@@ -9404,8 +7897,8 @@ return $.ui.fancytree;
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 
@@ -9458,14 +7951,19 @@ var FT = $.ui.fancytree,
 	SOURCE_NODE_LIST = null,
 	$sourceList = null,
 	DRAG_ENTER_RESPONSE = null,
-	LAST_HIT_MODE = null;
+	LAST_HIT_MODE = null,
+	DRAG_OVER_STAMP = null;  // Time when a node entered the 'over' hitmode
 
 /* */
 function _clearGlobals() {
 	SOURCE_NODE = null;
 	SOURCE_NODE_LIST = null;
+	if( $sourceList ) {
+		$sourceList.removeClass(classDragSource + " " + classDragRemove);
+	}
 	$sourceList = null;
 	DRAG_ENTER_RESPONSE = null;
+	DRAG_OVER_STAMP = null;
 }
 
 /* Convert number to string and prepend +/-; return empty string for 0.*/
@@ -9567,8 +8065,7 @@ function handleDragOver(event, data) {
 		return LAST_HIT_MODE;
 	}
 
-	var markerOffsetX, nodeOfs, relPosY, //res,
-		// eventHash = getEventHash(event),
+	var markerOffsetX, nodeOfs, pos, relPosY,
 		hitMode = null,
 		tree = data.tree,
 		options = tree.options,
@@ -9645,16 +8142,22 @@ function handleDragOver(event, data) {
 			break;
 		}
 
+		pos = {
+			my: "left" + offsetString(markerOffsetX) + " center",
+			at: "left " + markerAt,
+			of: $targetTitle
+		};
+		if( options.rtl ) {
+			pos.my = "right" + offsetString(-markerOffsetX) + " center";
+			pos.at = "right " + markerAt;
+			// console.log("rtl", pos);
+		}
 		$dropMarker
 			.toggleClass(classDropAfter, hitMode === "after")
 			.toggleClass(classDropOver, hitMode === "over")
 			.toggleClass(classDropBefore, hitMode === "before")
 			.show()
-			.position(FT.fixPositionOptions({
-				my: "left" + offsetString(markerOffsetX) + " center",
-				at: "left " + markerAt,
-				of: $targetTitle
-				}));
+			.position(FT.fixPositionOptions(pos));
 	} else {
 		$dropMarker.hide();
 		// console.log("hide dropmarker")
@@ -9717,7 +8220,7 @@ function getDropEffect(event, data) {
 
 $.ui.fancytree.registerExtension({
 	name: "dnd5",
-	version: "2.28.0",
+	version: "2.30.0",
 	// Default options for this extension.
 	options: {
 		autoExpandMS: 1500,          // Expand nodes after n milliseconds of hovering
@@ -9797,6 +8300,7 @@ $.ui.fancytree.registerExtension({
 				// $dropMarker.addClass(glyph.map._addClass + " " + glyph.map.dropMarker);
 			}
 		}
+		$dropMarker.toggleClass("fancytree-rtl", !!opts.rtl);
 		// Enable drag support if dragStart() is specified:
 		if( dndOpts.dragStart ) {
 			// Bind drag event handlers
@@ -9916,7 +8420,6 @@ $.ui.fancytree.registerExtension({
 					break;
 
 				case "dragend":
-					$sourceList.removeClass(classDragSource + " " + classDragRemove);
 					_clearGlobals();
 //					data.dropEffect = dropEffect;
 					data.isCancelled = (dropEffect === "none");
@@ -9960,6 +8463,7 @@ $.ui.fancytree.registerExtension({
 					// The dragenter event is fired when a dragged element or
 					// text selection enters a valid drop target.
 
+					DRAG_OVER_STAMP = null;
 					if( !node ) {
 						// Sometimes we get dragenter for the container element
 						tree.debug("Ignore non-node " + event.type + ": " + event.target.tagName + "." + event.target.className);
@@ -9981,20 +8485,6 @@ $.ui.fancytree.registerExtension({
 						break;
 					}
 
-					// NOTE: dragenter is fired BEFORE the dragleave event
-					// of the previous element!
-					// https://www.w3.org/Bugs/Public/show_bug.cgi?id=19041
-					setTimeout(function(){
-						// node.info("DELAYED " + event.type, event.target, DRAG_ENTER_RESPONSE);
-						// Auto-expand node (only when 'over' the node, not 'before', or 'after')
-						if( dndOpts.autoExpandMS &&
-							node.hasChildren() !== false && !node.expanded &&
-							(!dndOpts.dragExpand || dndOpts.dragExpand(node, data) !== false)
-							) {
-							node.scheduleAction("expand", dndOpts.autoExpandMS);
-						}
-					}, 0);
-
 					$dropMarker.show();
 
 					// Call dragEnter() to figure out if (and where) dropping is allowed
@@ -10011,12 +8501,47 @@ $.ui.fancytree.registerExtension({
 					break;
 
 				case "dragover":
+					if( !node ) {
+						tree.debug("Ignore non-node " + event.type + ": " + event.target.tagName + "." + event.target.className);
+						break;
+					}
 					// The dragover event is fired when an element or text
 					// selection is being dragged over a valid drop target
 					// (every few hundred milliseconds).
 					// console.log(event.type, "dropEffect: " + dataTransfer.dropEffect)
 					LAST_HIT_MODE = handleDragOver(event, data);
 					allowDrop = !!LAST_HIT_MODE;
+
+					// console.log(event.type, LAST_HIT_MODE, DRAG_OVER_STAMP)
+
+					if( LAST_HIT_MODE === "over" &&
+						!node.expanded && node.hasChildren() !== false ) {
+						if( !DRAG_OVER_STAMP ) {
+							DRAG_OVER_STAMP = Date.now();
+						} else if( dndOpts.autoExpandMS &&
+								(Date.now() - DRAG_OVER_STAMP) > dndOpts.autoExpandMS &&
+								(!dndOpts.dragExpand || dndOpts.dragExpand(node, data) !== false)
+								) {
+								node.setExpanded();
+							}
+					} else {
+						DRAG_OVER_STAMP = null;
+					}
+					// // NOTE: dragenter is fired BEFORE the dragleave event
+					// // of the previous element!
+					// // https://www.w3.org/Bugs/Public/show_bug.cgi?id=19041
+					// setTimeout(function(){
+					// 	node.info("DELAYED " + event.type, event.target, DRAG_ENTER_RESPONSE);
+					// 	// Auto-expand node (only when 'over' the node, not 'before', or 'after')
+					// 	if( dndOpts.autoExpandMS &&
+					// 		node.hasChildren() !== false && !node.expanded &&
+					// 		(!dndOpts.dragExpand || dndOpts.dragExpand(node, data) !== false)
+					// 		// res.over
+					// 		) {
+					// 		node.scheduleAction("expand", dndOpts.autoExpandMS);
+					// 	}
+					// }, 0);
+
 					break;
 
 				case "dragleave":
@@ -10105,8 +8630,8 @@ return $.ui.fancytree;
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 ;(function( factory ) {
@@ -10362,7 +8887,7 @@ $.ui.fancytree._FancytreeNodeClass.prototype.isEditing = function(){
  */
 $.ui.fancytree.registerExtension({
 	name: "edit",
-	version: "2.28.0",
+	version: "2.30.0",
 	// Default options for this extension.
 	options: {
 		adjustWidthOfs: 4,   // null: don't adjust input size to content
@@ -10387,13 +8912,16 @@ $.ui.fancytree.registerExtension({
 		this.$container.addClass("fancytree-ext-edit");
 	},
 	nodeClick: function(ctx) {
-		if( $.inArray("shift+click", ctx.options.edit.triggerStart) >= 0 ){
+		var eventStr = $.ui.fancytree.eventToString(ctx.originalEvent),
+			triggerStart = ctx.options.edit.triggerStart;
+
+		if( eventStr === "shift+click" && $.inArray("shift+click", triggerStart) >= 0 ){
 			if( ctx.originalEvent.shiftKey ){
 				ctx.node.editStart();
 				return false;
 			}
 		}
-		if( $.inArray("clickActive", ctx.options.edit.triggerStart) >= 0 ){
+		if( eventStr === "click" && $.inArray("clickActive", triggerStart) >= 0 ){
 			// Only when click was inside title text (not aynwhere else in the row)
 			if( ctx.node.isActive() && !ctx.node.isEditing() &&
 				$(ctx.originalEvent.target).hasClass("fancytree-title")
@@ -10445,8 +8973,8 @@ return $.ui.fancytree;
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 ;(function( factory ) {
@@ -10740,7 +9268,7 @@ $.ui.fancytree._FancytreeNodeClass.prototype.isMatched = function(){
  */
 $.ui.fancytree.registerExtension({
 	name: "filter",
-	version: "2.28.0",
+	version: "2.30.0",
 	// Default options for this extension.
 	options: {
 		autoApply: true,   // Re-apply last filter if lazy data is loaded
@@ -10833,8 +9361,8 @@ return $.ui.fancytree;
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 ;(function( factory ) {
@@ -10895,7 +9423,8 @@ var FT = $.ui.fancytree,
 			expanderClosed: "fa-caret-right",
 			expanderLazy: "fa-angle-right",
 			expanderOpen: "fa-caret-down",
-			loading: "fa-spinner fa-pulse",
+			// We may prevent wobbling rotations on FF by creating a separate sub element:
+			loading: {html: "<span class='fa fa-spinner fa-pulse' />"},
 			nodata: "fa-meh-o",
 			noExpander: "",
 			radio: "fa-circle-thin",  // "fa-circle-o"
@@ -11009,7 +9538,7 @@ function setIcon( span, baseClass, opts, type ) {
 
 $.ui.fancytree.registerExtension({
 	name: "glyph",
-	version: "2.28.0",
+	version: "2.30.0",
 	// Default options for this extension.
 	options: {
 		preset: null,  // 'awesome3', 'awesome4', 'bootstrap3', 'material'
@@ -11131,8 +9660,8 @@ return $.ui.fancytree;
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 ;(function( factory ) {
@@ -11255,11 +9784,11 @@ function findNeighbourTd($target, keyCode){
  */
 $.ui.fancytree.registerExtension({
 	name: "gridnav",
-	version: "2.28.0",
+	version: "2.30.0",
 	// Default options for this extension.
 	options: {
-		autofocusInput:   false,  // Focus first embedded input if node gets activated
-		handleCursorKeys: true   // Allow UP/DOWN in inputs to move to prev/next node
+		autofocusInput: false,  // Focus first embedded input if node gets activated
+		handleCursorKeys: true  // Allow UP/DOWN in inputs to move to prev/next node
 	},
 
 	treeInit: function(ctx){
@@ -11344,6 +9873,130 @@ return $.ui.fancytree;
 }));  // End of closure
 
 
+/*! Extension 'jquery.fancytree.multi.js' *//*!
+ * jquery.fancytree.multi.js
+ *
+ * Allow multiple selection of nodes  by mouse or keyboard.
+ * (Extension module for jquery.fancytree.js: https://github.com/mar10/fancytree/)
+ *
+ * Copyright (c) 2008-2018, Martin Wendt (http://wwWendt.de)
+ *
+ * Released under the MIT license
+ * https://github.com/mar10/fancytree/wiki/LicenseInfo
+ *
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
+ */
+
+;(function( factory ) {
+	if ( typeof define === "function" && define.amd ) {
+		// AMD. Register as an anonymous module.
+		define( [ "jquery", "./jquery.fancytree" ], factory );
+	} else if ( typeof module === "object" && module.exports ) {
+		// Node/CommonJS
+		require("./jquery.fancytree");
+		module.exports = factory(require("jquery"));
+	} else {
+		// Browser globals
+		factory( jQuery );
+	}
+
+}( function( $ ) {
+
+"use strict";
+
+
+/*******************************************************************************
+ * Private functions and variables
+ */
+
+// var isMac = /Mac/.test(navigator.platform);
+
+
+/*******************************************************************************
+ * Extension code
+ */
+$.ui.fancytree.registerExtension({
+	name: "multi",
+	version: "2.30.0",
+	// Default options for this extension.
+	options: {
+		allowNoSelect: false,  //
+		mode: "sameParent",    //
+		// Events:
+		// beforeSelect: $.noop  // Return false to prevent cancel/save (data.input is available)
+	},
+
+	treeInit: function(ctx){
+		this._superApply(arguments);
+		this.$container.addClass("fancytree-ext-multi");
+		if( ctx.options.selectMode === 1 ) {
+			$.error("Fancytree ext-multi: selectMode: 1 (single) is not compatible.");
+		}
+	},
+	nodeClick: function(ctx) {
+		var //pluginOpts = ctx.options.multi,
+			tree = ctx.tree,
+			node = ctx.node,
+			activeNode = tree.getActiveNode() || tree.getFirstChild(),
+			isCbClick = ctx.targetType === "checkbox",
+			isExpanderClick = ctx.targetType === "expander",
+			eventStr = $.ui.fancytree.eventToString(ctx.originalEvent);
+
+		switch( eventStr ) {
+		case "click":
+			if( isExpanderClick ) { break; }  // Default handler will expand/collapse
+			if( !isCbClick ) {
+				tree.selectAll(false);
+				// Select clicked node (radio-button  mode)
+				node.setSelected();
+			}
+			// Default handler will toggle checkbox clicks and activate
+			break;
+		case "shift+click":
+			// node.debug("click")
+			tree.visitRows(function(n){
+				// n.debug("click2", n===node, node)
+				n.setSelected();
+				if( n === node ) { return false; }
+			}, {
+				start: activeNode,
+				reverse: activeNode.isBelowOf(node)
+			});
+			break;
+		case "ctrl+click":
+		case "meta+click":  // Mac: [Command]
+			node.toggleSelected();
+			return;
+		}
+		return this._superApply(arguments);
+	},
+	nodeKeydown: function(ctx) {
+		var tree = ctx.tree,
+			node = ctx.node,
+			eventStr = $.ui.fancytree.eventToString(ctx.originalEvent);
+
+		switch( eventStr ) {
+		case "up":
+		case "down":
+			tree.selectAll(false);
+			node.navigate(event.which, true);
+			tree.getActiveNode().setSelected();
+			break;
+		case "shift+up":
+		case "shift+down":
+			node.navigate(event.which, true);
+			tree.getActiveNode().setSelected();
+			break;
+		}
+		return this._superApply(arguments);
+	}
+});
+// Value returned by `require('jquery.fancytree..')`
+return $.ui.fancytree;
+}));  // End of closure
+
+
 /*! Extension 'jquery.fancytree.persist.js' *//*!
  * jquery.fancytree.persist.js
  *
@@ -11357,8 +10010,8 @@ return $.ui.fancytree;
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 ;(function( factory ) {
@@ -11534,7 +10187,7 @@ $.ui.fancytree._FancytreeClass.prototype.getPersistData = function(){
  */
 $.ui.fancytree.registerExtension({
 	name: "persist",
-	version: "2.28.0",
+	version: "2.30.0",
 	// Default options for this extension.
 	options: {
 		cookieDelimiter: "~",
@@ -11786,8 +10439,8 @@ return $.ui.fancytree;
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 ;(function( factory ) {
@@ -11878,19 +10531,19 @@ function findPrevRowNode(node){
 
 $.ui.fancytree.registerExtension({
 	name: "table",
-	version: "2.28.0",
+	version: "2.30.0",
 	// Default options for this extension.
 	options: {
-		checkboxColumnIdx: null, // render the checkboxes into the this column index (default: nodeColumnIdx)
-		// customStatus: false,	 // true: generate renderColumns events for status nodes
-		indentation: 16,         // indent every node level by 16px
-		nodeColumnIdx: 0         // render node expander, icon, and title to this column (default: #0)
+		checkboxColumnIdx: null,    // render the checkboxes into the this column index (default: nodeColumnIdx)
+		mergeStatusColumns: true,   // display 'nodata', 'loading', 'error' centered in a single, merged TR
+		indentation: 16,            // indent every node level by 16px
+		nodeColumnIdx: 0            // render node expander, icon, and title to this column (default: #0)
 	},
 	// Overide virtual methods for this extension.
 	// `this`       : is this extension object
 	// `this._super`: the virtual function that was overriden (member of prev. extension or Fancytree)
 	treeInit: function(ctx){
-		var i, columnCount, n, $row, $tbody,
+		var i, n, $row, $tbody,
 			tree = ctx.tree,
 			opts = ctx.options,
 			tableOpts = opts.table,
@@ -11926,21 +10579,21 @@ $.ui.fancytree.registerExtension({
 
 		// Prepare row templates:
 		// Determine column count from table header if any
-		columnCount = $("thead >tr:last >th", $table).length;
+		tree.columnCount = $("thead >tr:last >th", $table).length;
 		// Read TR templates from tbody if any
 		$row = $tbody.children("tr:first");
 		if( $row.length ) {
 			n = $row.children("td").length;
-			if( columnCount && n !== columnCount ) {
-				tree.warn("Column count mismatch between thead (" + columnCount + ") and tbody (" + n + "): using tbody.");
-				columnCount = n;
+			if( tree.columnCount && n !== tree.columnCount ) {
+				tree.warn("Column count mismatch between thead (" + tree.columnCount + ") and tbody (" + n + "): using tbody.");
+				tree.columnCount = n;
 			}
 			$row = $row.clone();
 		} else {
 			// Only thead is defined: create default row markup
-			_assert(columnCount >= 1, "Need either <thead> or <tbody> with <td> elements to determine column count.");
+			_assert(tree.columnCount >= 1, "Need either <thead> or <tbody> with <td> elements to determine column count.");
 			$row = $("<tr />");
-			for(i=0; i<columnCount; i++) {
+			for(i=0; i<tree.columnCount; i++) {
 				$row.append("<td />");
 			}
 		}
@@ -12128,6 +10781,7 @@ $.ui.fancytree.registerExtension({
 	},
 	nodeRenderTitle: function(ctx, title) {
 		var $cb, res,
+			tree = ctx.tree,
 			node = ctx.node,
 			opts = ctx.options,
 			isStatusNode = node.isStatusNode();
@@ -12149,6 +10803,13 @@ $.ui.fancytree.registerExtension({
 			if( opts.renderStatusColumns ) {
 				// Let user code write column content
 				opts.renderStatusColumns.call(ctx.tree, {type: "renderStatusColumns"}, ctx);
+			} else if( opts.table.mergeStatusColumns && node.isTopLevel() ) {
+				var $tdList = $(node.tr).find(">td");
+				$tdList.eq(0)
+					.prop("colspan", tree.columnCount)
+					.text(node.title)
+					.addClass("fancytree-status-merged")
+					.nextAll().remove();
 			} // else: default rendering for status node: leave other cells empty
 		} else if ( opts.renderColumns ) {
 			opts.renderColumns.call(ctx.tree, {type: "renderColumns"}, ctx);
@@ -12165,8 +10826,11 @@ $.ui.fancytree.registerExtension({
 		$(node.tr).removeClass("fancytree-node");
 		// indent
 		indent = (node.getLevel() - 1) * opts.table.indentation;
-		$(node.span).css({paddingLeft: indent + "px"});  // #460
-		// $(node.span).css({marginLeft: indent + "px"});
+		if( opts.rtl ) {
+			$(node.span).css({paddingRight: indent + "px"});
+		} else {
+			$(node.span).css({paddingLeft: indent + "px"});
+		}
 	 },
 	/* Expand node, return Deferred.promise. */
 	nodeSetExpanded: function(ctx, flag, callOpts) {
@@ -12259,8 +10923,8 @@ return $.ui.fancytree;
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 ;(function( factory ) {
@@ -12285,7 +10949,7 @@ return $.ui.fancytree;
  */
 $.ui.fancytree.registerExtension({
 	name: "themeroller",
-	version: "2.28.0",
+	version: "2.30.0",
 	// Default options for this extension.
 	options: {
 		activeClass: "ui-state-active",      // Class added to active node
@@ -12371,8 +11035,8 @@ return $.ui.fancytree;
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 ;(function( factory ) {
@@ -12485,7 +11149,7 @@ function renderLevelCss(containerId, depth, levelOfs, lineOfs, labelOfs, measure
  */
 $.ui.fancytree.registerExtension({
 	name: "wide",
-	version: "2.28.0",
+	version: "2.30.0",
 	// Default options for this extension.
 	options: {
 		iconWidth: null,     // Adjust this if @fancy-icon-width != "16px"

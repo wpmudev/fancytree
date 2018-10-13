@@ -91,7 +91,10 @@
 		) {
 			if (!$badge.length) {
 				$badge = $("<span class='fancytree-childcounter'/>").appendTo(
-					$("span.fancytree-icon", node.span)
+					$(
+						"span.fancytree-icon,span.fancytree-custom-icon",
+						node.span
+					)
 				);
 			}
 			$badge.text(count);
@@ -210,7 +213,10 @@
 				(count || !extOpts.hideZeros) &&
 				(!node.isExpanded() || !extOpts.hideExpanded)
 			) {
-				$("span.fancytree-icon", node.span).append(
+				$(
+					"span.fancytree-icon,span.fancytree-custom-icon",
+					node.span
+				).append(
 					$("<span class='fancytree-childcounter'/>").text(count)
 				);
 			}

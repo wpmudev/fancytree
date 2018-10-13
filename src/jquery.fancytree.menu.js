@@ -32,7 +32,7 @@
 
 	$.ui.fancytree.registerExtension({
 		name: "menu",
-		version: "0.0.1",
+		version: "@VERSION",
 		// Default options for this extension.
 		options: {
 			enable: true,

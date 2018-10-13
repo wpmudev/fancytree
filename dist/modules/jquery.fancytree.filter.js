@@ -9,8 +9,8 @@
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 ;(function( factory ) {
@@ -304,7 +304,7 @@ $.ui.fancytree._FancytreeNodeClass.prototype.isMatched = function(){
  */
 $.ui.fancytree.registerExtension({
 	name: "filter",
-	version: "2.28.0",
+	version: "2.30.0",
 	// Default options for this extension.
 	options: {
 		autoApply: true,   // Re-apply last filter if lazy data is loaded

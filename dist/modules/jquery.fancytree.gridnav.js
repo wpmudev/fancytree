@@ -9,8 +9,8 @@
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 ;(function( factory ) {
@@ -133,11 +133,11 @@ function findNeighbourTd($target, keyCode){
  */
 $.ui.fancytree.registerExtension({
 	name: "gridnav",
-	version: "2.28.0",
+	version: "2.30.0",
 	// Default options for this extension.
 	options: {
-		autofocusInput:   false,  // Focus first embedded input if node gets activated
-		handleCursorKeys: true   // Allow UP/DOWN in inputs to move to prev/next node
+		autofocusInput: false,  // Focus first embedded input if node gets activated
+		handleCursorKeys: true  // Allow UP/DOWN in inputs to move to prev/next node
 	},
 
 	treeInit: function(ctx){

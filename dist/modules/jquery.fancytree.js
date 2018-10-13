@@ -7,8 +7,8 @@
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.28.0
- * @date 2018-03-02T20:59:49Z
+ * @version 2.30.0
+ * @date 2018-09-02T15:42:49Z
  */
 
 /** Core Fancytree module.
@@ -150,6 +150,62 @@ function isVersionAtLeast(dottedVersion, major, minor, patch){
 	}
 	return true;
 }
+
+
+/**
+ * Deep-merge a list of objects (but replace array-type options).
+ *
+ * jQuery's $.extend(true, ...) method does a deep merge, that also merges Arrays.
+ * This variant is used to merge extension defaults with user options, and should
+ * merge objects, but override arrays (for example the `triggerStart: [...]` option
+ * of ext-edit). Also `null` values are copied over and not skipped.
+ *
+ * See issue #876
+ *
+ * Example:
+ * _simpleDeepMerge({}, o1, o2);
+ */
+ function _simpleDeepMerge() {
+	var options, name, src, copy, clone,
+		target = arguments[ 0 ] || {},
+		i = 1,
+		length = arguments.length;
+
+	// Handle case when target is a string or something (possible in deep copy)
+	if ( typeof target !== "object" && !$.isFunction( target ) ) {
+		target = {};
+	}
+	if ( i === length ) {
+		throw "need at least two args";
+	}
+	for ( ; i < length; i++ ) {
+		// Only deal with non-null/undefined values
+		if ( ( options = arguments[ i ] ) != null ) {
+			// Extend the base object
+			for ( name in options ) {
+				src = target[ name ];
+				copy = options[ name ];
+				// Prevent never-ending loop
+				if ( target === copy ) {
+					continue;
+				}
+				// Recurse if we're merging plain objects
+				// (NOTE: unlike $.extend, we don't merge arrays, but relace them)
+				if ( copy && $.isPlainObject( copy ) ) {
+					clone = src && $.isPlainObject( src ) ? src : {};
+					// Never move original objects, clone them
+					target[ name ] = _simpleDeepMerge( clone, copy );
+					// Don't bring in undefined values
+				} else if ( copy !== undefined ) {
+					target[ name ] = copy;
+				}
+			}
+		}
+	}
+	// Return the modified object
+	return target;
+}
+
 
 /** Return a wrapper that calls sub.methodName() and exposes
  *  this             : tree
@@ -1701,7 +1757,7 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 	scheduleAction: function(mode, ms) {
 		if( this.tree.timer ) {
 			clearTimeout(this.tree.timer);
-//            this.tree.debug("clearTimeout(%o)", this.tree.timer);
+			this.tree.debug("clearTimeout(%o)", this.tree.timer);
 		}
 		this.tree.timer = null;
 		var self = this; // required for closures
@@ -1735,29 +1791,42 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 	 */
 	scrollIntoView: function(effects, options) {
 		if( options !== undefined && _isNode(options) ) {
-			this.warn("scrollIntoView() with 'topNode' option is deprecated since 2014-05-08. Use 'options.topNode' instead.");
-			options = {topNode: options};
+			throw "scrollIntoView() with 'topNode' option is deprecated since 2014-05-08. Use 'options.topNode' instead.";
 		}
-		// this.$scrollParent = (this.options.scrollParent === "auto") ? $ul.scrollParent() : $(this.options.scrollParent);
-		// this.$scrollParent = this.$scrollParent.length ? this.$scrollParent || this.$container;
-
-		var topNodeY, nodeY, horzScrollbarHeight, containerOffsetTop,
-			opts = $.extend({
+		// The scroll parent is typically the plain tree's <UL> container.
+		// For ext-table, we choose the nearest parent that has `position: relative`
+		// and `overflow` set.
+		// (This default can be overridden by the local or global `scrollParent` option.)
+		var opts = $.extend({
 				effects: (effects === true) ? {duration: 200, queue: false} : effects,
 				scrollOfs: this.tree.options.scrollOfs,
-				scrollParent: this.tree.options.scrollParent || this.tree.$container,
+				scrollParent: this.tree.options.scrollParent,
 				topNode: null
 			}, options),
+			$scrollParent = opts.scrollParent;
+
+		if( !$scrollParent ) {
+			$scrollParent = this.tree.tbody ? this.tree.$container.scrollParent() : this.tree.$container;
+		} else if( !$scrollParent.jquery ) {
+			// Make sure we have a jQuery object
+			$scrollParent = $($scrollParent);
+		}
+		if( $scrollParent[0] === document ) {
+			// `document` may returned by $().scrollParent(), if nothing is found,
+			// but would not work:
+			$scrollParent = $(window);
+		}
+
+		var topNodeY, nodeY, horzScrollbarHeight, containerOffsetTop,
 			dfd = new $.Deferred(),
 			that = this,
 			nodeHeight = $(this.span).height(),
-			$container = $(opts.scrollParent),
 			topOfs = opts.scrollOfs.top || 0,
 			bottomOfs = opts.scrollOfs.bottom || 0,
-			containerHeight = $container.height(),// - topOfs - bottomOfs,
-			scrollTop = $container.scrollTop(),
-			$animateTarget = $container,
-			isParentWindow = $container[0] === window,
+			containerHeight = $scrollParent.height(),
+			scrollTop = $scrollParent.scrollTop(),
+			$animateTarget = $scrollParent,
+			isParentWindow = $scrollParent[0] === window,
 			topNode = opts.topNode || null,
 			newScrollTop = null;
 
@@ -1774,13 +1843,13 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 			$animateTarget = $("html,body");
 
 		} else {
-			_assert($container[0] !== document && $container[0] !== document.body,
+			_assert($scrollParent[0] !== document && $scrollParent[0] !== document.body,
 				"scrollParent should be a simple element or `window`, not document or body.");
 
-			containerOffsetTop = $container.offset().top,
+			containerOffsetTop = $scrollParent.offset().top,
 			nodeY = $(this.span).offset().top - containerOffsetTop + scrollTop; // relative to scroll parent
 			topNodeY = topNode ? $(topNode.span).offset().top - containerOffsetTop + scrollTop : 0;
-			horzScrollbarHeight = Math.max(0, ($container.innerHeight() - $container[0].clientHeight));
+			horzScrollbarHeight = Math.max(0, ($scrollParent.innerHeight() - $scrollParent[0].clientHeight));
 			containerHeight -= horzScrollbarHeight;
 		}
 
@@ -1824,8 +1893,11 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 	},
 
 	/**Activate this node.
+	 *
+	 * The `cell` option requires the ext-table and ext-ariagrid extensions.
+	 *
 	 * @param {boolean} [flag=true] pass false to deactivate
-	 * @param {object} [opts] additional options. Defaults to {noEvents: false, noFocus: false}
+	 * @param {object} [opts] additional options. Defaults to {noEvents: false, noFocus: false, cell: null}
 	 * @returns {$.Promise}
 	 */
 	setActive: function(flag, opts){
@@ -2388,14 +2460,15 @@ Fancytree.prototype = /** @lends Fancytree# */{
 	 * If activeVisible option is set, all parents will be expanded as necessary.
 	 * Pass key = false, to deactivate the current node only.
 	 * @param {string} key
+	 * @param {object} [opts] additional options. Defaults to {noEvents: false, noFocus: false}
 	 * @returns {FancytreeNode} activated node (null, if not found)
 	 */
-	activateKey: function(key) {
+	activateKey: function(key, opts) {
 		var node = this.getNodeByKey(key);
 		if(node){
-			node.setActive();
+			node.setActive(true, opts);
 		}else if(this.activeNode){
-			this.activeNode.setActive(false);
+			this.activeNode.setActive(false, opts);
 		}
 		return node;
 	},
@@ -2465,8 +2538,18 @@ Fancytree.prototype = /** @lends Fancytree# */{
 			consoleApply("log", arguments);
 		}
 	},
-	// TODO: disable()
-	// TODO: enable()
+	/** Enable (or disable) the tree control.
+	 *
+	 * @param {boolean} [flag=true] pass false to disable
+	 * @since 2.30
+	 */
+	enable: function(flag){
+		if( flag === false ) {
+			this.widget.disable();
+		} else {
+			this.widget.enable();
+		}
+	},
 	/** Temporarily suppress rendering to improve performance on bulk-updates.
 	 *
 	 * @param {boolean} flag
@@ -2489,6 +2572,23 @@ Fancytree.prototype = /** @lends Fancytree# */{
 			this.debug("enableUpdate(false)...");
 		}
 		return !flag; // return previous value
+	},
+	/** Expand (or collapse) all parent nodes.
+	 *
+	 * This convenience method uses `tree.visit()` and `tree.setExpanded()`
+	 * internally.
+	 *
+	 * @param {boolean} [flag=true] pass false to collapse
+	 * @param {object} [opts] passed to setExpanded()
+	 * @since 2.30
+	 */
+	expandAll: function(flag, opts){
+		flag = (flag !== false);
+		this.visit(function(node){
+			if( node.hasChildren() !== false && node.isExpanded() !== flag ) {
+				node.setExpanded(flag, opts);
+			}
+		});
 	},
 	/**Find all nodes that matches condition.
 	 *
@@ -2670,9 +2770,18 @@ Fancytree.prototype = /** @lends Fancytree# */{
 		return this.focusNode;
 	},
 	/**
+	 * Return current option value.
+	 * (Note: this is the preferred variant of `$().fancytree("option", "KEY")`)
+	 *
+	 * @param {string} name option name (may contain '.')
+	 * @returns {any}
+	 */
+	getOption: function(optionName) {
+		return this.widget.option(optionName);
+	},
+	/**
 	 * Return node with a given key or null if not found.
 	 *
-	 * Not
 	 * @param {string} key
 	 * @param {FancytreeNode} [searchRoot] only search below this node
 	 * @returns {FancytreeNode | null}
@@ -2984,6 +3093,15 @@ Fancytree.prototype = /** @lends Fancytree# */{
 	 */
 	setFocus: function(flag) {
 		return this._callHook("treeSetFocus", this, flag);
+	},
+	/**
+	 * Set current option value.
+	 * (Note: this is the preferred variant of `$().fancytree("option", "KEY", VALUE)`)
+	 * @param {string} name option name (may contain '.')
+	 * @param {any} new value
+	 */
+	setOption: function(optionName, value) {
+		return this.widget.option(optionName, value);
 	},
 	/**
 	 * Return all nodes as nested list of {@link NodeData}.
@@ -3383,11 +3501,11 @@ $.extend(Fancytree.prototype,
 			if(ajax.debugDelay){
 				// simulate a slow server
 				delay = ajax.debugDelay;
+				delete ajax.debugDelay;  // remove debug option
 				if($.isArray(delay)){ // random delay range [min..max]
 					delay = delay[0] + Math.random() * (delay[1] - delay[0]);
 				}
 				node.warn("nodeLoadChildren waiting debugDelay " + Math.round(delay) + " ms ...");
-				ajax.debugDelay = false;
 				dfd = $.Deferred(function (dfd) {
 					setTimeout(function () {
 						$.ajax(ajax)
@@ -3421,11 +3539,17 @@ $.extend(Fancytree.prototype,
 				// but it is also called for JSONP
 				if( ctx.options.postProcess ){
 					try {
+						// The handler may either
+						//   - modify `ctx.response` in-place (and leave `ctx.result` undefined)
+						//     => res = undefined
+						//   - return a replacement in `ctx.result`
+						//     => res = <new data>
+						// If res contains an `error` property, an error status is displayed
 						res = tree._triggerNodeEvent("postProcess", ctx, ctx.originalEvent, {
 							response: data, error: null, dataType: this.dataType
 						});
 					} catch(e) {
-						res = { error: e, message: "" + e, details: "postProcess failed"};
+						res = { error: e, message: "" + e, details: "postProcess failed" };
 					}
 					if( res.error ) {
 						errorObj = $.isPlainObject(res.error) ? res.error : {message: res.error};
@@ -3433,7 +3557,11 @@ $.extend(Fancytree.prototype,
 						source.rejectWith(this, [errorObj]);
 						return;
 					}
-					data = $.isArray(res) ? res : data;
+					if(  $.isArray(res) || ($.isPlainObject(res) && $.isArray(res.children)) ) {
+						// Use `ctx.result` if valid
+						// (otherwise use existing data, which may have been modified in-place)
+						data = res;
+					}
 
 				} else if (data && data.hasOwnProperty("d") && ctx.options.enableAspx ) {
 					// Process ASPX WebMethod JSON object inside "d" property
@@ -3496,15 +3624,19 @@ $.extend(Fancytree.prototype,
 			if( ctx.options.postProcess ){
 				// #792: Call postProcess for non-deferred source
 				var res = tree._triggerNodeEvent("postProcess", ctx, ctx.originalEvent, {
-					response: source, error: null, dataType: typeof source
-				});
+						response: source, error: null, dataType: typeof source
+					});
 
-				source = $.isArray(res) ? res : source;
+				if(  $.isArray(res) || ($.isPlainObject(res) && $.isArray(res.children)) ) {
+					// Use `ctx.result` if valid
+					// (otherwise use existing data, which may have been modified in-place)
+					source = res;
+				}
 			}
 		}
 		// $.when(source) resolves also for non-deferreds
 		return $.when(source).done(function(children){
-			var metaData;
+			var metaData, noDataRes;
 
 			if( $.isPlainObject(children) ){
 				// We got {foo: 'abc', children: [...]}
@@ -3526,6 +3658,19 @@ $.extend(Fancytree.prototype,
 			}
 			_assert($.isArray(children), "expected array of children");
 			node._setChildren(children);
+
+			if( tree.options.nodata && children.length === 0 ) {
+				if( $.isFunction(tree.options.nodata) ) {
+					noDataRes = tree.options.nodata.call(tree, {type: "nodata"}, ctx);
+				} else if( tree.options.nodata === true && node.isRootNode() ) {
+					noDataRes = tree.options.strings.nodata;
+				} else if( typeof tree.options.nodata === "string" && node.isRootNode() ) {
+					noDataRes = tree.options.nodata;
+				}
+				if( noDataRes ) {
+					node.setStatus("nodata", noDataRes);
+				}
+			}
 			// trigger fancytreeloadchildren
 			tree._triggerNodeEvent("loadChildren", node);
 		});
@@ -4092,6 +4237,7 @@ $.extend(Fancytree.prototype,
 			opts = ctx.options,
 			noEvents = (callOpts.noEvents === true),
 			noFocus = (callOpts.noFocus === true),
+			scroll = ((callOpts.scrollIntoView !== false)),
 			isActive = (node === tree.activeNode);
 
 		// flag defaults to true
@@ -4112,9 +4258,12 @@ $.extend(Fancytree.prototype,
 				tree.nodeSetActive(subCtx, false);
 				_assert(tree.activeNode === null, "deactivate was out of sync?");
 			}
+
 			if(opts.activeVisible){
 				// If no focus is set (noFocus: true) and there is no focused node, this node is made visible.
-				node.makeVisible({scrollIntoView: noFocus && tree.focusNode == null});
+				// scroll = noFocus && tree.focusNode == null;
+				// #863: scroll by default (unless `scrollIntoView: false` was passed)
+				node.makeVisible({scrollIntoView: scroll});
 			}
 			tree.activeNode = node;
 			tree.nodeRenderStatus(ctx);
@@ -4233,20 +4382,48 @@ $.extend(Fancytree.prototype,
 				} else {
 					// The UI toggle() effect works with the ext-wide extension,
 					// while jQuery.animate() has problems when the title span
-					// has positon: absolute.
+					// has position: absolute.
 					// Since jQuery UI 1.12, the blind effect requires the parent
 					// element to have 'position: relative'.
 					// See #716, #717
 					$(node.li).addClass(cn.animating);  // #717
-//					node.info("fancytree-animating start: " + node.li.className);
-					$(node.ul)
-						.addClass(cn.animating)  // # 716
-						.toggle(effect.effect, effect.options, effect.duration, function(){
-//							node.info("fancytree-animating end: " + node.li.className);
+
+					if (!$.isFunction($(node.ul)[effect.effect]) ) {
+						// The UI toggle() effect works with the ext-wide extension,
+						// while jQuery.animate() has problems when the title span
+						// has positon: absolute.
+						// Since jQuery UI 1.12, the blind effect requires the parent
+						// element to have 'position: relative'.
+						// See #716, #717
+						tree.debug("use specified effect (" + effect.effect + ") with the jqueryui.toggle method");
+
+						// try to stop an animation that might be already in progress
+						$(node.ul).stop(true, true); //< does not work after resetLazy has been called for a node whose animation wasn't complete and effect was "blind"
+
+						// dirty fix to remove a defunct animation (effect: "blind") after resetLazy has been called
+						$(node.ul).parent().find(".ui-effects-placeholder").remove();
+
+						$(node.ul).toggle(effect.effect, effect.options, effect.duration, function() {
+							node.info("fancytree-animating end: " + node.li.className);
 							$(this).removeClass(cn.animating);  // #716
 							$(node.li).removeClass(cn.animating);  // #717
 							callback();
 						});
+
+					} else {
+						tree.debug("use jquery." + effect.effect + " method");
+
+						$(node.ul)[effect.effect]({
+							duration: effect.duration,
+							always: function() {
+										node.info("fancytree-animating end: " + node.li.className);
+										$(this).removeClass(cn.animating);  // #716
+										$(node.li).removeClass(cn.animating);  // #717
+										callback();
+									}
+						});
+					}
+
 					return;
 				}
 			}
@@ -4504,7 +4681,7 @@ $.extend(Fancytree.prototype,
 			break;
 		case "nodata":
 			_setStatusNode({
-				title: tree.options.strings.noData,
+				title: message || tree.options.strings.noData,
 				// icon: false,
 				checkbox: false,
 				tooltip: details
@@ -4710,7 +4887,13 @@ $.extend(Fancytree.prototype,
 			}
 		}
 	},
-	/** Widget option was set using `$().fancytree("option", "foo", "bar")`.
+	/** Widget option was set using `$().fancytree("option", "KEY", VALUE)`.
+	 *
+	 * Note: `key` may reference a nested option, e.g. 'dnd5.scroll'.
+	 * In this case `value`contains the complete, modified `dnd5` option hash.
+	 * We can check for changed values like
+	 *     if( value.scroll !== tree.options.dnd5.scroll ) {...}
+	 *
 	 * @param {EventData} ctx
 	 * @param {string} key option name
 	 * @param {any} value option value
@@ -4814,7 +4997,8 @@ $.widget("ui.fancytree",
 		// fx: { height: "toggle", duration: 200 },
 		// toggleEffect: { effect: "drop", options: {direction: "left"}, duration: 200 },
 		// toggleEffect: { effect: "slide", options: {direction: "up"}, duration: 200 },
-		toggleEffect: { effect: "blind", options: {direction: "vertical", scale: "box"}, duration: 200 },
+		//toggleEffect: { effect: "blind", options: {direction: "vertical", scale: "box"}, duration: 200 },
+		toggleEffect: { effect: "slideToggle", duration: 200 }, //< "toggle" or "slideToggle" to use jQuery instead of jQueryUI for toggleEffect animation
 		generateIds: false,
 		icon: true,
 		idPrefix: "ft_",
@@ -4822,6 +5006,7 @@ $.widget("ui.fancytree",
 		keyboard: true,
 		keyPathSeparator: "/",
 		minExpandLevel: 1,
+		nodata: true,               // (bool, string, or callback) display message, when no data available
 		quicksearch: false,
 		rtl: false,
 		scrollOfs: {top: 0, bottom: 0},
@@ -4882,7 +5067,15 @@ $.widget("ui.fancytree",
 			}
 			// Add extension options as tree.options.EXTENSION
 //			_assert(!this.tree.options[extName], "Extension name must not exist as option name: " + extName);
-			this.tree.options[extName] = $.extend(true, {}, extension.options, this.tree.options[extName]);
+
+			// console.info("extend " + extName, extension.options, this.tree.options[extName])
+			// issue #876: we want to replace custom array-options, not merge them
+			this.tree.options[extName] = _simpleDeepMerge({}, extension.options, this.tree.options[extName]);
+			// this.tree.options[extName] = $.extend(true, {}, extension.options, this.tree.options[extName]);
+
+			// console.info("extend " + extName + " =>", this.tree.options[extName])
+			// console.info("extend " + extName + " org default =>", extension.options)
+
 			// Add a namespace tree.ext.EXTENSION, to hold instance data
 			_assert(this.tree.ext[extName] === undefined, "Extension name must not exist as Fancytree.ext attribute: '" + extName + "'");
 //			this.tree[extName] = extension;
@@ -4928,7 +5121,7 @@ $.widget("ui.fancytree",
 		this._bind();
 	},
 
-	/* Use the _setOption method to respond to changes to options */
+	/* Use the _setOption method to respond to changes to options. */
 	_setOption: function(key, value) {
 		return this.tree._callHook("treeSetOption", this.tree, key, value);
 	},
@@ -4970,19 +5163,26 @@ $.widget("ui.fancytree",
 			var node = FT.getNode(event),
 				flag = (event.type === "focusin");
 
-			// tree.treeOnFocusInOut.call(tree, event);
-			// tree.debug("Tree container got event " + event.type, node, event, FT.getEventTarget(event));
-			if( flag && tree._getExpiringValue("focusin") ) {
-				// #789: IE 11 may send duplicate focusin events
-				FT.info("Ignored double focusin.");
+			if( !flag && node && $(event.target).is("a") ) {
+				// #764
+				node.debug("Ignored focusout on embedded <a> element.");
 				return;
 			}
-			tree._setExpiringValue("focusin", true, 50);
+			// tree.treeOnFocusInOut.call(tree, event);
+			// tree.debug("Tree container got event " + event.type, node, event, FT.getEventTarget(event));
+			if( flag ) {
+				if( tree._getExpiringValue("focusin") ) {
+					// #789: IE 11 may send duplicate focusin events
+					tree.debug("Ignored double focusin.");
+					return;
+				}
+				tree._setExpiringValue("focusin", true, 50);
 
-			if( flag && !node ) {
-				// #789: IE 11 may send focusin before mousdown(?)
-				node = tree._getExpiringValue("mouseDownNode");
-				if( node ) { FT.info("Reconstruct mouse target for focusin from recent event."); }
+				if( !node ) {
+					// #789: IE 11 may send focusin before mousdown(?)
+					node = tree._getExpiringValue("mouseDownNode");
+					if( node ) { tree.debug("Reconstruct mouse target for focusin from recent event."); }
+				}
 			}
 			if(node){
 				// For example clicking into an <input> that is part of a node
@@ -5121,7 +5321,7 @@ $.extend($.ui.fancytree,
 	/** @lends Fancytree_Static# */
 	{
 	/** @type {string} */
-	version: "2.28.0",      // Set to semver by 'grunt release'
+	version: "2.30.0",      // Set to semver by 'grunt release'
 	/** @type {string} */
 	buildType: "production", // Set to 'production' by 'grunt build'
 	/** @type {int} */
@@ -5219,6 +5419,9 @@ $.extend($.ui.fancytree,
 	 *
 	 * See http://jqueryui.com/upgrade-guide/1.9/#deprecated-offset-option-merged-into-my-and-at
 	 * and http://jsfiddle.net/mar10/6xtu9a4e/
+	 *
+	 * @param {object} opts
+	 * @returns {object} the (potentially modified) original opts hash object
 	 */
 	fixPositionOptions: function(opts) {
 		if( opts.offset || ("" + opts.my + opts.at ).indexOf("%") >= 0 ) {
@@ -5249,7 +5452,7 @@ $.extend($.ui.fancytree,
 	 *     TYPE: 'title' | 'prefix' | 'expander' | 'checkbox' | 'icon' | undefined
 	 */
 	getEventTarget: function(event){
-		var $target,
+		var $target, tree,
 			tcn = event && event.target ? event.target.className : "",
 			res = {node: this.getNode(event.target), type: undefined};
 		// We use a fast version of $(res.node).hasClass()
@@ -5270,7 +5473,8 @@ $.extend($.ui.fancytree,
 			$target = $(event.target);
 			if( $target.is("ul[role=group]") ) {
 				// #nnn: Clicking right to a node may hit the surrounding UL
-				FT.info("Ignoring click on outer UL.");
+				tree = res.node && res.node.tree;
+				(tree || FT).debug("Ignoring click on outer UL.");
 				res.node = null;
 			}else if( $target.closest(".fancytree-title").length ) {
 				// #228: clicking an embedded element inside a title
