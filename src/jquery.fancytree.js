@@ -2432,8 +2432,6 @@
 						break;
 					}
 				}
-			} else {
-					//                dict.children = null;
 			}
 			return res;
 		},
@@ -4422,6 +4420,7 @@
 					l,
 					next,
 					subCtx,
+					subNode,
 					node = ctx.node,
 					tree = ctx.tree,
 					opts = ctx.options,
