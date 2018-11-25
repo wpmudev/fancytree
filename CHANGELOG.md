@@ -1,14 +1,21 @@
-# Branch types2
-  * Support `extraClasses`
-  * Auto-apply tree.types.icon, .iconTooltip, tooltip
+# 2.30.2-0 / Unreleased
+  * [Fixed] #910 ext-dnd5 throws error for draggable column headers
+  * [Fixed] overrideMethod()'s calling context
+  * [Fixed] #912 ext-dnd5 + ext-glyph awesome5 does not show the icons when dragging an item
 
-# 2.30.1-0 / Unreleased
+# 2.30.1 / 2018-11-13
   * [Changed] Apply and enforce 'prettier' codestyle
   * [Changed] #897 Set font for table extension
+  * [Fixed] #883: Font Awesome 4 animation spinner stays visible
   * [Fixed] #894: Fancytree assertion failed: scrollParent should be a simple element or `window`, not document or body.
   * [Fixed] #896 _requireExtension: order managment
   * [Fixed] #899 Creating duplicate icon when removing node using extension columnview
   * [Fixed] #900 ColumnView Extension - Toggle between parent and children not working
+  * [Fixed] #909 With quicksearch enabled, does not search for non-Latin character
+
+# Branch types2
+  * Support `extraClasses`
+  * Auto-apply tree.types.icon, .iconTooltip, tooltip
 
 # 2.30.0 / 2018-09-02
   * [Changed] ext-edit trigger 'clickActive' now only triggers if no modifier keys
